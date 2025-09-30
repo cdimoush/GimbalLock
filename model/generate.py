@@ -70,6 +70,13 @@ def create_temp_config(document_id, workspace_id, version_id, element_id, output
 
     return config_path
 
+def cleanup():
+    """
+    Remove all files with .part extension in assets/
+    """
+    assets_dir = Path(__file__).parent / "gyro" / "assets"
+    for file in assets_dir.glob("*.part"):
+        os.remove(file)
 
 def main():
     if len(sys.argv) < 2:
@@ -147,6 +154,8 @@ def main():
         mjcf_path = str(mjcf_dir / "robot.xml")
         mjcf_exporter.write_xml(robot, mjcf_path)
         print(f"   {mjcf_path}")
+
+        cleanup()
 
         # Summary
         print("\n{'='*60}")

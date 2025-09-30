@@ -43,6 +43,22 @@ The dev container includes:
 - VS Code extensions for Python development
 - All project dependencies from `requirements.txt`
 
+## Usage
+
+### Generate Robot Models
+
+Generate URDF and MuJoCo models from an Onshape assembly:
+
+```bash
+python model/generate.py <onshape_url>
+```
+
+The script:
+- Parses the Onshape URL to extract document/workspace/element IDs
+- Builds the robot model using onshape-to-robot
+- Exports to both URDF (`model/gyro/urdf/`) and MuJoCo MJCF (`model/gyro/mjcf/`)
+- Downloads mesh assets to `model/gyro/assets/`
+
 ## Goals
 
 1. Model gyroscope in Onshape
