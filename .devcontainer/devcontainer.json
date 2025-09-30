@@ -14,7 +14,8 @@
         "ms-python.debugpy",
         "tamasfe.even-better-toml",
         "redhat.vscode-yaml",
-        "ms-vscode.vscode-json"
+        "ms-vscode.vscode-json",
+        "anthropic.claude-code"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
@@ -37,5 +38,6 @@
   "workspaceFolder": "/workspace",
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind"
-  ]
+  ],
+  "runArgs": ["--env-file", "${localWorkspaceFolder}/.env"]
 }

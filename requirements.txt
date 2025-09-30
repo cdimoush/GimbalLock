@@ -1,5 +1,6 @@
 # Core dependencies
 torch>=2.0.0
+onshape-to-robot==1.7.7
 
 # Development and testing
 pytest>=7.0.0
