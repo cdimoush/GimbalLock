@@ -1,22 +1,25 @@
 # GimbalLock
 
-A gyroscope modeling and simulation project that bridges Onshape CAD to multiple physics simulators for system identification.
+A gyroscope modeling and simulation project that bridges Onshape CAD and physics simulator(s) to explore a conceptual system identification problem.
 
 ## Purpose
 
 The goal of **GimbalLock** is to model a gyroscope in Onshape, convert it into a URDF using *onshape-to-robot*, generate simulation assets for multiple simulators, and perform system identification of the gyroscope across those environments.
+
+**Currently only using Isaac Lab**
 
 ## Project Structure
 
 ```
 GimbalLock/
 ├── .devcontainer/  # VS Code dev container configuration
-├── sim/            # Simulator-specific integrations
-│    ├── isaac/     # Isaac Automator workflows + robot loader
-│    └── mujoco/    # MuJoCo integration
+├── src/            # Source Code 
+|    ├── sys_id/    # System Identification methods 
+|    ├── modeling/  # Code for creating robot models  
+│    ├── isaac/     # Isaac integration
+│    └── mujoco/    # MuJoCo integration (Aspiration)
+├── scripts/        # Excutables  
 ├── models/         # Robot descriptions (URDF/USD/Onshape conversions)
-├── analysis/       # System identification, PyTorch workflows
-├── tests/          # Test files and validation scripts
 ├── docs/           # Diagrams, notes, writeups
 ├── requirements.txt # Python dependencies
 └── README.md       # Project overview
@@ -32,16 +35,7 @@ This project includes a VS Code dev container for a seamless development experie
 - VS Code with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 - Docker Desktop
 
-**To get started:**
-1. Open the project in VS Code
-2. Click "Reopen in Container" when prompted (or use Command Palette > "Dev Containers: Reopen in Container")
-3. VS Code will build the container and set up the environment automatically
-
-The dev container includes:
-- Python 3.11 with PyTorch
-- Pre-configured Python tools (black, ruff, pytest)
-- VS Code extensions for Python development
-- All project dependencies from `requirements.txt`
+TODO add dev container stuff later. 
 
 ## Usage
 
@@ -59,10 +53,22 @@ The script:
 - Exports to both URDF (`model/gyro/urdf/`) and MuJoCo MJCF (`model/gyro/mjcf/`)
 - Downloads mesh assets to `model/gyro/assets/`
 
-## Goals
 
-1. Model gyroscope in Onshape
-2. Convert to URDF using onshape-to-robot
-3. Generate simulation assets for multiple environments
-4. Perform system identification across simulators
-5. Compare results between simulation environments
+# EC2 Workflow
+
+
+## DCV Linux Server 
+
+### Setup
+https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-prereq.html
+
+https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-server.html
+
+### Using
+https://docs.aws.amazon.com/dcv/latest/adminguide/manage-start.html
+
+$ sudo dcv create-session my-console-session --type=console --owner ubuntu
+$ dcv list-sessions
+
+
+Once a session is running, go to https://ip_address:port and virtual ubuntu machine can be seen through browser. 
