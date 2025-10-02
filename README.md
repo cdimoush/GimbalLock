@@ -15,7 +15,6 @@ GimbalLock/
 ├── .devcontainer/  # VS Code dev container configuration
 ├── src/            # Source Code 
 |    ├── sys_id/    # System Identification methods 
-|    ├── modeling/  # Code for creating robot models  
 │    ├── isaac/     # Isaac integration
 │    └── mujoco/    # MuJoCo integration (Aspiration)
 ├── scripts/        # Excutables  

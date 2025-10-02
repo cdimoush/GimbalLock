@@ -1,17 +1,2 @@
 # Core dependencies
-torch>=2.0.0
 onshape-to-robot==1.7.7
-
-# Development and testing
-pytest>=7.0.0
-pytest-cov>=4.0.0
-
-# Common robotics/simulation dependencies
-numpy>=1.24.0
-scipy>=1.10.0
-matplotlib>=3.6.0
-
-# Optional: Add these when needed
-# pybullet>=3.2.0
-# mujoco>=2.3.0
-# urdfpy>=0.0.22

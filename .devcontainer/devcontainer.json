@@ -1,43 +1,124 @@
 {
-  "name": "GimbalLock Dev",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".."
-  },
-  "features": {},
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "ms-python.black-formatter",
-        "charliermarsh.ruff",
-        "ms-python.debugpy",
-        "tamasfe.even-better-toml",
-        "redhat.vscode-yaml",
-        "ms-vscode.vscode-json",
-        "anthropic.claude-code"
-      ],
-      "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.linting.enabled": true,
-        "python.linting.ruffEnabled": true,
-        "python.formatting.provider": "black",
-        "python.formatting.blackArgs": ["--line-length=88"],
-        "files.trimTrailingWhitespace": true,
-        "files.insertFinalNewline": true,
-        "editor.formatOnSave": true,
-        "editor.codeActionsOnSave": {
-          "source.organizeImports": "explicit"
+    "name": "GimbalLock",
+
+    // Build custom Dockerfile for additional dependencies
+    "build": {
+      "dockerfile": "Dockerfile",
+      "context": "..",
+      "args": {
+        "ISAACSIM_VERSION": "5.0.0",
+        "ISAACLAB_VERSION": "main"
+      }
+    },
+        
+    // GPU and networking configuration
+    "runArgs": [
+      "--gpus=all",                    // Enable all GPUs
+      "--network=host",                // Required for Omniverse streaming
+      "--ipc=host",                    // Shared memory for multiprocessing
+      "--ulimit", "memlock=-1",        // Remove memory lock limits
+      "--ulimit", "stack=67108864",    // Increase stack size for deep learning
+
+      // Load environment variables from .env file
+      "--env-file", "${localWorkspaceFolder}/.env",
+
+      // X11 forwarding for GUI applications
+      "-e", "DISPLAY=${localEnv:DISPLAY}",
+      "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw",
+      "-v", "${localEnv:HOME}/.Xauthority:/root/.Xauthority :rw",
+
+      // License acceptance (required)
+      "-e", "ACCEPT_EULA=${localEnv:ACCEPT_EULA}",
+      "-e", "PRIVACY_CONSENT=${localEnv:PRIVACY_CONSENT}"
+    ],
+
+    // GPU driver configuration
+    "containerEnv": {
+      "NVIDIA_VISIBLE_DEVICES": "all",
+      "NVIDIA_DRIVER_CAPABILITIES": "graphics,display,video,utility,compute"
+    },
+
+    // Environment setup
+    "remoteEnv": {
+      "ISAACLAB_PATH": "/workspace/isaaclab",
+      "ACCEPT_EULA": "${localEnv:ACCEPT_EULA}",
+      "PRIVACY_CONSENT": "${localEnv:PRIVACY_CONSENT}",
+      "DISPLAY": "${localEnv:DISPLAY}"
+    },
+    
+    // Source code mount (Design Lab extension directory)
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/isaaclab/source/GimbalLock,type=bind,consistency=cached",
+    "workspaceFolder": "/workspace/isaaclab/source/GimbalLock",
+    
+    // Cache volumes for performance (critical for Isaac Sim)
+    "mounts": [
+      // Isaac Sim caches (shader compilation - saves 5-15 min on startup)
+      "source=isaac-cache-kit,target=/isaac-sim/kit/cache,type=volume",
+      "source=isaac-cache-ov,target=/root/.cache/ov,type=volume",
+      "source=isaac-cache-pip,target=/root/.cache/pip,type=volume",
+      "source=isaac-cache-glcache,target=/root/.cache/nvidia/GLCache,type=volume",
+      "source=isaac-cache-computecache,target=/root/.nv/ComputeCache,type=volume",
+      
+      // Logs and data persistence
+      "source=isaac-carb-logs,target=/root/.nvidia-omniverse/logs,type=volume",
+      "source=isaac-data,target=/root/.local/share/ov/data,type=volume",
+      "source=isaac-docs,target=/root/Documents,type=volume",
+      
+      // Isaac Lab specific storage
+      "source=isaac-lab-logs,target=/workspace/isaaclab/logs,type=volume",
+      
+      // Exclude build artifacts from source mount (overlay pattern)
+      "target=/workspace/isaaclab/docs/_build,type=volume",
+      "target=/workspace/isaaclab/.eggs,type=volume"
+    ],
+    
+    // GPU requirements (allows graceful fallback)
+    "hostRequirements": {
+      "gpu": "optional",
+      "cpus": 4,
+      "memory": "8gb",
+      "storage": "32gb"
+    },
+    
+    // X11 permission setup on host before container starts
+    "initializeCommand": "xhost +local:root || echo 'Warning: xhost not available'",
+    
+    // Install Design Lab extension in editable mode
+    "postCreateCommand": {
+      "verify-gpu": "nvidia-smi && echo \"GPU: OK\" || echo \"GPU: Not detected\"",
+      "verify-import": "/isaac-sim/python.sh -c 'import GimbalLock; print(\"Design Lab loaded:\", GimbalLock.__file__)' || echo 'Extension import check failed'"
+    },
+      
+    // VS Code customizations
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "ms-python.python",
+          "ms-python.vscode-pylance"
+        ],
+        "settings": {
+          "python.defaultInterpreterPath": "/isaac-sim/python.sh",
+          "python.analysis.extraPaths": [
+            "/isaac-sim/exts",
+            "/workspace/isaaclab/source/isaaclab",
+            "/workspace/isaaclab/source/GimbalLock"
+          ],
+          "python.linting.enabled": true,
+          "terminal.integrated.defaultProfile.linux": "bash",
+          "terminal.integrated.profiles.linux": {
+            "bash": {
+              "path": "/bin/bash",
+              "args": ["-l"]
+            }
+          }
         }
       }
-    }
-  },
-  "forwardPorts": [],
-  "postCreateCommand": "pip install -r requirements.txt",
-  "remoteUser": "root",
-  "workspaceFolder": "/workspace",
-  "mounts": [
-    "source=${localWorkspaceFolder},target=/workspace,type=bind"
-  ],
-  "runArgs": ["--env-file", "${localWorkspaceFolder}/.env"]
-}
+    },
+    
+    // Cleanup X11 permissions when container stops
+    "postStopCommand": "xhost -local:root || true",
+    
+    // Run as root (Isaac Sim requirement)
+    "remoteUser": "root"
+  }
+  
