@@ -44,3 +44,12 @@ Thumbs.db
 
 # Backup files
 *.bak
+
+# Claude
+.claude/
+
+# models
+models/
+
+# data
+data/

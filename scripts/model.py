@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate robot models (URDF and MuJoCo) from Onshape assembly URL.
-Usage: python model/generate.py <onshape_url>
+Usage: python scripts/onshape_to_robot.py <onshape_url>
 """
 
 import json
@@ -74,14 +74,14 @@ def cleanup():
     """
     Remove all files with .part extension in assets/
     """
-    assets_dir = Path(__file__).parent / "gyro" / "assets"
+    assets_dir = Path(__file__).parent.parent / "models" / "gyro" / "assets"
     for file in assets_dir.glob("*.part"):
         os.remove(file)
 
 def main():
     if len(sys.argv) < 2:
         print("ERROR: Missing Onshape URL")
-        print("Usage: python model/generate.py <onshape_url>")
+        print("Usage: python scripts/onshape_to_robot.py <onshape_url>")
         sys.exit(1)
 
     url = sys.argv[1]
@@ -101,7 +101,7 @@ def main():
         sys.exit(1)
 
     # Create output directories
-    base_dir = Path(__file__).parent / "gyro"
+    base_dir = Path(__file__).parent.parent / "models" / "gyro"
     urdf_dir = base_dir / "urdf"
     mjcf_dir = base_dir / "mjcf"
     assets_dir = base_dir / "assets"
@@ -112,7 +112,7 @@ def main():
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     # Import onshape-to-robot modules
-    from onshape_to_robot import processors
+    # from onshape_to_robot import processors
     from onshape_to_robot.config import Config
     from onshape_to_robot.exporter_mujoco import ExporterMuJoCo
     from onshape_to_robot.exporter_urdf import ExporterURDF
@@ -145,7 +145,7 @@ def main():
         urdf_exporter = ExporterURDF(config)
         urdf_path = str(urdf_dir / "robot.urdf")
         urdf_exporter.write_xml(robot, urdf_path)
-        print(f"   {urdf_path}")
+        print(f"  ✓ {urdf_path}")
 
         # Export to MuJoCo (update config format)
         print("\nExporting to MuJoCo...")
@@ -153,7 +153,7 @@ def main():
         mjcf_exporter = ExporterMuJoCo(config)
         mjcf_path = str(mjcf_dir / "robot.xml")
         mjcf_exporter.write_xml(robot, mjcf_path)
-        print(f"   {mjcf_path}")
+        print(f"  ✓ {mjcf_path}")
 
         cleanup()
 

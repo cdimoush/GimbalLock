@@ -44,14 +44,14 @@ TODO add dev container stuff later.
 Generate URDF and MuJoCo models from an Onshape assembly:
 
 ```bash
-python model/generate.py <onshape_url>
+python scripts/onshape_to_robot.py <onshape_url>
 ```
 
 The script:
 - Parses the Onshape URL to extract document/workspace/element IDs
 - Builds the robot model using onshape-to-robot
-- Exports to both URDF (`model/gyro/urdf/`) and MuJoCo MJCF (`model/gyro/mjcf/`)
-- Downloads mesh assets to `model/gyro/assets/`
+- Exports to both URDF (`models/gyro/urdf/`) and MuJoCo MJCF (`models/gyro/mjcf/`)
+- Downloads mesh assets to `models/gyro/assets/`
 
 
 # EC2 Workflow
