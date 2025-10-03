@@ -43,7 +43,7 @@ TODO add dev container stuff later.
 Generate URDF and MuJoCo models from an Onshape assembly:
 
 ```bash
-python scripts/onshape_to_robot.py <onshape_url>
+python scripts/model.py https://cad.onshape.com/documents/d9033effb682bcc1f574e56d/w/6d5aea9da7909d1356cfc92f/e/b16349724e740b7cd7040f0b
 ```
 
 The script:
@@ -52,10 +52,16 @@ The script:
 - Exports to both URDF (`models/gyro/urdf/`) and MuJoCo MJCF (`models/gyro/mjcf/`)
 - Downloads mesh assets to `models/gyro/assets/`
 
+Use the USD tool
+
+python scripts/tools/convert_urdf.py /workspace/isaaclab/source/GimbalLock/models/gyro/urdf/robot.urdf /workspace/isaaclab/source/GimbalLock/models/gyro/usd/robot.usd --merge-joints --joint-stiffness 0.0 --joint-damping 0.0 --joint-target-type none --headless
+
+
+Run the SIM
+python scripts/sim.py --headless --enable_cameras
+
 
 # EC2 Workflow
-
-
 ## DCV Linux Server 
 
 ### Setup

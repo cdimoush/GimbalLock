@@ -34,7 +34,7 @@ from src.camera import create_camera, setup_camera_writer, take_picture, setup_v
 
 # Simulation time controls
 SIM_DT = 1/100        # Physics timestep in seconds (500 Hz)
-DURATION = 30         # Total simulation duration in seconds
+DURATION = 10         # Total simulation duration in seconds
 FPS = 10              # Video frame rate (frames per second)
 
 
