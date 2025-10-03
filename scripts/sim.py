@@ -23,13 +23,14 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+import torch
 import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.actuators import ImplicitActuatorCfg
 
-from src.camera import create_camera, take_picture
+from src.camera import create_camera, setup_camera_writer, take_picture
 
 # Gyro robot configuration
 GYRO_CONFIG = ArticulationCfg(
@@ -77,28 +78,28 @@ class GyroSceneCfg(InteractiveSceneCfg):
     gyro = GYRO_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
 
 
-def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera):
-    """Simple simulation loop - robot just sits there."""
+def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera, rep_writer):
+    """Simple simulation loop - takes a picture and exits."""
     count = 0
-    picture_taken = False
     
     while simulation_app.is_running():
-        # No actions - robot just sits there
-        scene.write_data_to_sim()
+        # Step simulation
         sim.step()
         count += 1
+        
+        # Update scene and camera
         scene.update(sim.get_physics_dt())
+        camera.update(dt=sim.get_physics_dt())
         
-        # Update camera
-        camera.update(sim.get_physics_dt())
+        # Write scene data
+        scene.write_data_to_sim()
         
-        # Take a picture after 50 steps (give time for scene to stabilize)
-        if count == 50 and not picture_taken:
-            take_picture(camera, output_dir="/workspace/isaaclab/source/GimbalLock/output")
-            picture_taken = True
-            print("[INFO]: Picture taken!")
-        # Exit the simulation loop after taking the picture
-        if picture_taken:
+        # Take a picture after a few steps (give time for scene to stabilize)
+        if count == 10:
+            take_picture(camera, rep_writer, camera_index=0)
+            print("[INFO]: Picture taken! Exiting...")
+            # Stop the simulation app
+            simulation_app.close()
             break
 
 
@@ -113,17 +114,30 @@ def main():
     scene_cfg = GyroSceneCfg(args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
     
-    # Create camera
-    camera = create_camera(prim_path="/World/Camera", position=(2.0, 2.0, 2.0), target=(0.0, 0.0, 0.5))
+    # Create camera BEFORE sim.reset() (following tutorial)
+    camera = create_camera(prim_path="/World/CameraOrigin", device=args_cli.device)
     
     # Play the simulator
     sim.reset()
+    
+    # Set camera pose AFTER sim.reset() (following tutorial)
+    camera_position = torch.tensor([[2.0, 2.0, 2.0]], device=sim.device)
+    camera_target = torch.tensor([[0.0, 0.0, 0.5]], device=sim.device)
+    camera.set_world_poses_from_view(camera_position, camera_target)
+    
+    # Setup camera writer
+    rep_writer = setup_camera_writer(camera, output_dir="/workspace/isaaclab/source/GimbalLock/output")
+    
     print("[INFO]: Gyro robot simulation ready...")
     
     # Run the simulator
-    run_simulator(sim, scene, camera)
+    run_simulator(sim, scene, camera, rep_writer)
 
 
 if __name__ == "__main__":
-    main()
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        # Ensure clean shutdown
+        if simulation_app.is_running():
+            simulation_app.close()
