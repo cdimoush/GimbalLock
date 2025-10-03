@@ -33,7 +33,7 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from src.camera import create_camera, setup_camera_writer, take_picture, setup_video_writer, record_frame
 
 # Simulation time controls
-SIM_DT = 1/100        # Physics timestep in seconds (500 Hz)
+SIM_DT = 1/60        # Physics timestep in seconds (500 Hz)
 DURATION = 10         # Total simulation duration in seconds
 FPS = 10              # Video frame rate (frames per second)
 
@@ -149,18 +149,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
             frames_captured += 1
             next_frame_time += 1.0 / FPS
             
-            # Debug: Print joint2 position for captured frames
-            joint2_pos_rad = gyro.data.joint_pos[0, 2].item()
-            joint2_pos_deg = np.degrees(joint2_pos_rad)
-            print(f"[DEBUG] Frame {frames_captured}/{total_video_frames} @ t={sim_time:.3f}s: "
-                  f"Joint2 = {joint2_pos_rad:.6f} rad ({joint2_pos_deg:.0f}°)")
-        
-        # Take a single snapshot at 1 second
-        if 1.0 <= sim_time < 1.0 + SIM_DT and physics_step > 1:
-            take_picture(camera, rep_writer, camera_index=0)
-            print(f"[INFO]: Snapshot saved at t={sim_time:.3f}s")
-    
-    # Close video writer when done
+    # # Close video writer when done
     if video_writer is not None:
         video_writer.close()
         print(f"[INFO]: Video recording complete!")
