@@ -32,6 +32,12 @@ from isaaclab.actuators import ImplicitActuatorCfg
 
 from src.camera import create_camera, setup_camera_writer, take_picture, setup_video_writer, record_frame
 
+# Simulation time controls
+SIM_DT = 1/100        # Physics timestep in seconds (500 Hz)
+DURATION = 30         # Total simulation duration in seconds
+FPS = 10              # Video frame rate (frames per second)
+
+
 # Gyro robot configuration
 GYRO_CONFIG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
@@ -78,8 +84,8 @@ class GyroSceneCfg(InteractiveSceneCfg):
     gyro = GYRO_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
 
 
-def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera, rep_writer, video_writer=None, num_frames=100):
-    """Simple simulation loop - records video and optionally takes a picture.
+def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera, rep_writer, video_writer=None):
+    """Simple simulation loop - records video at specified FPS while running physics at SIM_DT.
     
     Args:
         sim: Simulation context
@@ -87,59 +93,81 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
         camera: Camera instance
         rep_writer: Replicator BasicWriter for images
         video_writer: Optional video writer for MP4 recording
-        num_frames: Number of frames to record (default: 100)
     """
     import numpy as np
     
-    count = 0
     gyro = scene["gyro"]
     
     # Set joint states directly to simulation (no control, just kinematics)
     # Joint 1 (index 1): position = pi/6
     # Joint 2 (index 2): velocity = 1e3 rad/s
     joint_pos = gyro.data.default_joint_pos.clone()
-    joint_pos[:, 1] = np.pi / 6  # Set joint1 to pi/6 radians
+    joint_pos[:, 1] = np.pi / 4  # Set joint1 to pi/6 radians
     
     # Write directly to simulation
     gyro.write_joint_position_to_sim(joint_pos)
-        
-    while simulation_app.is_running() and count < num_frames:
-        # Step simulation
+    
+    # Calculate timing parameters
+    total_physics_steps = int(DURATION / SIM_DT)
+    total_video_frames = int(DURATION * FPS)
+    frame_capture_interval = SIM_DT * FPS  # Time between video frames
+    
+    print(f"[INFO]: Starting simulation")
+    print(f"[INFO]:   Duration: {DURATION} seconds")
+    print(f"[INFO]:   Physics DT: {SIM_DT} sec ({1/SIM_DT:.0f} Hz)")
+    print(f"[INFO]:   Total physics steps: {total_physics_steps}")
+    print(f"[INFO]:   Video FPS: {FPS}")
+    print(f"[INFO]:   Total video frames: {total_video_frames}")
+    print(f"[INFO]:   Capturing every {1/SIM_DT/FPS:.0f} physics steps")
+    
+    # Simulation state
+    physics_step = 0
+    sim_time = 0.0
+    next_frame_time = 0.0
+    frames_captured = 0
+    
+    while simulation_app.is_running() and sim_time < DURATION:
+        # Set joint velocity every step
         joint_vel = gyro.data.joint_vel.clone()
         joint_vel[:, 2] = 1e3
         gyro.write_joint_velocity_to_sim(joint_vel)
+        
+        # Step simulation
         sim.step()
-        gyro.update(sim.get_physics_dt())
-        count += 1
+        physics_step += 1
+        sim_time += SIM_DT
         
         # Update scene and camera
-        scene.update(sim.get_physics_dt())
-        camera.update(dt=sim.get_physics_dt())
-        
-        # Write scene data (for other assets, not controlling gyro)
+        gyro.update(SIM_DT)
+        scene.update(SIM_DT)
+        camera.update(dt=SIM_DT)
         scene.write_data_to_sim()
         
-        # Debug: Print joint2 position every frame
-        joint2_pos_rad = gyro.data.joint_pos[0, 2].item()
-        joint2_pos_deg = np.degrees(joint2_pos_rad)
-        joint2_vel = gyro.data.joint_vel[0, 2].item()
-        print(f"[DEBUG] Frame {count}: Joint2 position = {joint2_pos_rad:.6f} rad ({joint2_pos_deg:.0f}°), Joint2 velocity = {joint2_vel:.6f} rad/s")
-        
-        # Record frame to video (every frame)
-        if video_writer is not None:
+        # Check if we should capture a video frame (at FPS intervals, not every physics step)
+        if sim_time >= next_frame_time and video_writer is not None:
             record_frame(camera, video_writer, camera_index=0)
+            frames_captured += 1
+            next_frame_time += 1.0 / FPS
+            
+            # Debug: Print joint2 position for captured frames
+            joint2_pos_rad = gyro.data.joint_pos[0, 2].item()
+            joint2_pos_deg = np.degrees(joint2_pos_rad)
+            print(f"[DEBUG] Frame {frames_captured}/{total_video_frames} @ t={sim_time:.3f}s: "
+                  f"Joint2 = {joint2_pos_rad:.6f} rad ({joint2_pos_deg:.0f}°)")
         
-        # Take a single picture at frame 10 (optional)
-        if count == 10:
+        # Take a single snapshot at 1 second
+        if 1.0 <= sim_time < 1.0 + SIM_DT and physics_step > 1:
             take_picture(camera, rep_writer, camera_index=0)
-            print(f"[INFO]: Picture saved at frame {count}")
-            print(f"[INFO]: Current joint positions: {gyro.data.joint_pos[0].cpu().numpy()}")
-            print(f"[INFO]: Current joint velocities: {gyro.data.joint_vel[0].cpu().numpy()}")
+            print(f"[INFO]: Snapshot saved at t={sim_time:.3f}s")
     
     # Close video writer when done
     if video_writer is not None:
         video_writer.close()
-        print(f"[INFO]: Video recording complete! {count} frames recorded.")
+        print(f"[INFO]: Video recording complete!")
+        print(f"[INFO]:   Physics steps executed: {physics_step}")
+        print(f"[INFO]:   Simulation time: {sim_time:.3f} seconds")
+        print(f"[INFO]:   Video frames captured: {frames_captured}")
+        print(f"[INFO]:   Expected video duration: {frames_captured/FPS:.3f} seconds")
     
     print("[INFO]: Simulation complete. Exiting...")
     simulation_app.close()
@@ -148,7 +176,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
 def main():
     """Main function."""
     # Initialize the simulation context
-    sim_cfg = sim_utils.SimulationCfg(device=args_cli.device)
+    sim_cfg = sim_utils.SimulationCfg(device=args_cli.device, dt=SIM_DT)
     sim = sim_utils.SimulationContext(sim_cfg)
     sim.set_camera_view([2.0, 0.0, 2.0], [0.0, 0.0, 0.5])
     
@@ -173,14 +201,14 @@ def main():
     # Setup video writer (optional - set to None to disable video recording)
     video_writer = setup_video_writer(
         output_path="/workspace/isaaclab/source/GimbalLock/output/gyro_robot.mp4",
-        fps=10,
+        fps=FPS,
         quality=8
     )
     
     print("[INFO]: Gyro robot simulation ready...")
     
-    # Run the simulator (records 100 frames by default)
-    run_simulator(sim, scene, camera, rep_writer, video_writer, num_frames=100)
+    # Run the simulator with time-controlled loop
+    run_simulator(sim, scene, camera, rep_writer, video_writer)
 
 
 if __name__ == "__main__":
