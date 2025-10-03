@@ -56,9 +56,12 @@ Use the USD tool
 
 python scripts/tools/convert_urdf.py /workspace/isaaclab/source/GimbalLock/models/gyro/urdf/robot.urdf /workspace/isaaclab/source/GimbalLock/models/gyro/usd/robot.usd --merge-joints --joint-stiffness 0.0 --joint-damping 0.0 --joint-target-type none --headless
 
+Now I have custom USD tool
+python scripts/gyro_usd.py
+
 
 Run the SIM
-python scripts/sim.py --headless --enable_cameras
+python scripts/gyro_sim.py --headless --enable_cameras
 
 
 # EC2 Workflow
