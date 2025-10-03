@@ -89,7 +89,25 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
         video_writer: Optional video writer for MP4 recording
         num_frames: Number of frames to record (default: 100)
     """
+    import numpy as np
+    
     count = 0
+    gyro = scene["gyro"]
+    
+    # Set joint states directly to simulation (no control, just kinematics)
+    # Joint 1 (index 1): position = pi/6
+    # Joint 2 (index 2): velocity = 1e3 rad/s
+    joint_pos = gyro.data.default_joint_pos.clone()
+    joint_pos[:, 1] = np.pi / 6  # Set joint1 to pi/6 radians
+    
+    joint_vel = torch.zeros_like(gyro.data.default_joint_vel)
+    joint_vel[:, 2] = 1e6  # Set joint2 velocity to 1000 rad/s
+    
+    # Write directly to simulation
+    gyro.write_joint_position_to_sim(joint_pos)
+    gyro.write_joint_velocity_to_sim(joint_vel)
+    
+    print(f"[INFO]: Joint states written directly - Joint1: {np.pi/6:.3f} rad, Joint2: 1000 rad/s")
     
     while simulation_app.is_running() and count < num_frames:
         # Step simulation
@@ -100,8 +118,13 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
         scene.update(sim.get_physics_dt())
         camera.update(dt=sim.get_physics_dt())
         
-        # Write scene data
+        # Write scene data (for other assets, not controlling gyro)
         scene.write_data_to_sim()
+        
+        # Debug: Print joint2 position every frame
+        joint2_pos_rad = gyro.data.joint_pos[0, 2].item()
+        joint2_pos_deg = np.degrees(joint2_pos_rad)
+        print(f"[DEBUG] Frame {count}: Joint2 position = {joint2_pos_rad:.6f} rad ({joint2_pos_deg:.0f}°)")
         
         # Record frame to video (every frame)
         if video_writer is not None:
@@ -111,6 +134,8 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
         if count == 10:
             take_picture(camera, rep_writer, camera_index=0)
             print(f"[INFO]: Picture saved at frame {count}")
+            print(f"[INFO]: Current joint positions: {gyro.data.joint_pos[0].cpu().numpy()}")
+            print(f"[INFO]: Current joint velocities: {gyro.data.joint_vel[0].cpu().numpy()}")
     
     # Close video writer when done
     if video_writer is not None:
