@@ -35,8 +35,8 @@ from src.camera import create_camera, setup_camera_writer, take_picture, setup_v
 from src.joint_logger import JointLogger
 
 # Simulation time controls
-SIM_DT = 1/500        # Physics timestep in seconds
-DURATION = 1         # Total simulation duration in seconds
+SIM_DT = 1/1000        # Physics timestep in seconds
+DURATION = 20         # Total simulation duration in seconds
 FPS = 10              # Video frame rate (frames per second)
 
 # Initial joint states
@@ -49,7 +49,7 @@ INIT_JOINT_POS = {
 INIT_JOINT_VEL = {
     "joint0": 0.0,
     "joint1": 0.0,
-    "joint2": 1e3,
+    "joint2": 5e2,
 }
 
 
@@ -58,13 +58,36 @@ GYRO_CONFIG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path="/workspace/isaaclab/source/GimbalLock/models/gyro/usd/robot.usd",
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            disable_gravity=False,
-            max_depenetration_velocity=1e9,  # Very high to allow fast motion
+            # Core stability settings
+            disable_gravity=False, 
+            max_angular_velocity=25000.0,  # In DEGREES/s! 
+            max_linear_velocity=100.0,  # m/s 
+            
+            # Critical for gyroscopic dynamics
+            enable_gyroscopic_forces=True,  # MUST be True for realistic gyro behavior!
+            
+            # Damping (resistance to motion)
+            linear_damping=0.0,   # No linear drag
+            angular_damping=0.0,  # No angular drag - free spinning
+            
+            # # Solver settings for high-speed stability
+            solver_position_iteration_count=16,  # Higher for better accuracy
+            solver_velocity_iteration_count=8,   # Higher for high-speed convergence
+            
+            # # Contact/penetration handling
+            # max_depenetration_velocity=1000.0,  # High enough to not interfere
+            
+            # # Prevent artificial stabilization at high speeds
+            # sleep_threshold=0.0,         # Disable sleep
+            # stabilization_threshold=0.0, # Disable artificial stabilization
+            
+            # # Preserve forces across sub-steps
+            # retain_accelerations=True,  # Better sub-step accuracy
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False, 
-            solver_position_iteration_count=8, 
-            solver_velocity_iteration_count=4,  # Increase for better velocity handling
+            solver_position_iteration_count=16,  # Match rigid body settings
+            solver_velocity_iteration_count=8,   # Match rigid body settings  
             fix_root_link=True,
         ),
     ),
@@ -229,12 +252,6 @@ def main():
     # Set joint limits to very large values to avoid hitting constraints
     gyro_robot.write_joint_velocity_limit_to_sim(1e9)
     gyro_robot.write_joint_effort_limit_to_sim(1e9)
-    
-    # Remove all resistance to motion
-    gyro_robot.write_joint_stiffness_to_sim(0.1)
-    gyro_robot.write_joint_damping_to_sim(0.1)
-    gyro_robot.write_joint_armature_to_sim(1e-6)
-    gyro_robot.write_joint_friction_coefficient_to_sim(1e-6)
     
     print("[INFO]: Joint limits set to 1e9, all resistance parameters set to 0")
     
