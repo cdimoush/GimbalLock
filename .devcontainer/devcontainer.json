@@ -7,7 +7,9 @@
       "context": "..",
       "args": {
         "ISAACSIM_VERSION": "5.0.0",
-        "ISAACLAB_VERSION": "main"
+        "ISAACLAB_VERSION": "main",
+        "ACCEPT_EULA": "Y",
+        "PRIVACY_CONSENT": "Y"
       }
     },
         
@@ -18,18 +20,16 @@
       "--ipc=host",                    // Shared memory for multiprocessing
       "--ulimit", "memlock=-1",        // Remove memory lock limits
       "--ulimit", "stack=67108864",    // Increase stack size for deep learning
-
-      // Load environment variables from .env file
       "--env-file", "${localWorkspaceFolder}/.env",
 
-      // X11 forwarding for GUI applications
-      "-e", "DISPLAY=${localEnv:DISPLAY}",
+      // X11 forwarding for GUI applications (disabled for headless operation)
+      "-e", "DISPLAY=:0",
       "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw",
-      "-v", "${localEnv:HOME}/.Xauthority:/root/.Xauthority :rw",
+      "-v", "${localWorkspaceFolder}/.Xauthority:/root/.Xauthority:rw",
 
       // License acceptance (required)
-      "-e", "ACCEPT_EULA=${localEnv:ACCEPT_EULA}",
-      "-e", "PRIVACY_CONSENT=${localEnv:PRIVACY_CONSENT}"
+      "-e", "ACCEPT_EULA=Y",
+      "-e", "PRIVACY_CONSENT=Y"
     ],
 
     // GPU driver configuration
@@ -40,10 +40,7 @@
 
     // Environment setup
     "remoteEnv": {
-      "ISAACLAB_PATH": "/workspace/isaaclab",
-      "ACCEPT_EULA": "${localEnv:ACCEPT_EULA}",
-      "PRIVACY_CONSENT": "${localEnv:PRIVACY_CONSENT}",
-      "DISPLAY": "${localEnv:DISPLAY}"
+      "ISAACLAB_PATH": "/workspace/isaaclab"
     },
     
     // Source code mount (Design Lab extension directory)
@@ -81,14 +78,11 @@
     },
     
     // X11 permission setup on host before container starts
-    "initializeCommand": "xhost +local:root || echo 'Warning: xhost not available'",
+    "initializeCommand": "echo 'Starting devcontainer...'",
     
-    // Install Design Lab extension in editable mode
-    "postCreateCommand": {
-      "verify-gpu": "nvidia-smi && echo \"GPU: OK\" || echo \"GPU: Not detected\"",
-      "verify-import": "/isaac-sim/python.sh -c 'import GimbalLock; print(\"Design Lab loaded:\", GimbalLock.__file__)' || echo 'Extension import check failed'"
-    },
-      
+    // Cleanup X11 permissions when container stops
+    // "postStopCommand": "xhost -local:root || true",
+
     // VS Code customizations
     "customizations": {
       "vscode": {
@@ -119,9 +113,6 @@
         }
       }
     },
-    
-    // Cleanup X11 permissions when container stops
-    "postStopCommand": "xhost -local:root || true",
     
     // Run as root (Isaac Sim requirement)
     "remoteUser": "root"
