@@ -19,11 +19,17 @@ args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.actuators import ImplicitActuatorCfg
+
+from src.camera import create_camera, take_picture
 
 # Gyro robot configuration
 GYRO_CONFIG = ArticulationCfg(
@@ -71,13 +77,29 @@ class GyroSceneCfg(InteractiveSceneCfg):
     gyro = GYRO_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
 
 
-def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
+def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera):
     """Simple simulation loop - robot just sits there."""
+    count = 0
+    picture_taken = False
+    
     while simulation_app.is_running():
         # No actions - robot just sits there
         scene.write_data_to_sim()
         sim.step()
+        count += 1
         scene.update(sim.get_physics_dt())
+        
+        # Update camera
+        camera.update(sim.get_physics_dt())
+        
+        # Take a picture after 50 steps (give time for scene to stabilize)
+        if count == 50 and not picture_taken:
+            take_picture(camera, output_dir="/workspace/isaaclab/source/GimbalLock/output")
+            picture_taken = True
+            print("[INFO]: Picture taken!")
+        # Exit the simulation loop after taking the picture
+        if picture_taken:
+            break
 
 
 def main():
@@ -91,12 +113,15 @@ def main():
     scene_cfg = GyroSceneCfg(args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
     
+    # Create camera
+    camera = create_camera(prim_path="/World/Camera", position=(2.0, 2.0, 2.0), target=(0.0, 0.0, 0.5))
+    
     # Play the simulator
     sim.reset()
     print("[INFO]: Gyro robot simulation ready...")
     
     # Run the simulator
-    run_simulator(sim, scene)
+    run_simulator(sim, scene, camera)
 
 
 if __name__ == "__main__":
