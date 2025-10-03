@@ -30,7 +30,7 @@ from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.actuators import ImplicitActuatorCfg
 
-from src.camera import create_camera, setup_camera_writer, take_picture
+from src.camera import create_camera, setup_camera_writer, take_picture, setup_video_writer, record_frame
 
 # Gyro robot configuration
 GYRO_CONFIG = ArticulationCfg(
@@ -41,7 +41,7 @@ GYRO_CONFIG = ArticulationCfg(
             max_depenetration_velocity=5.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-            enabled_self_collisions=True, 
+            enabled_self_collisions=False, 
             solver_position_iteration_count=8, 
             solver_velocity_iteration_count=0,
             fix_root_link=True,
@@ -67,22 +67,31 @@ class GyroSceneCfg(InteractiveSceneCfg):
     """Simple scene with just the gyro robot."""
 
     # Ground-plane
-    ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
+    # ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
 
     # lights
-    dome_light = AssetBaseCfg(
-        prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
+    distant_light = AssetBaseCfg(
+        prim_path="/World/Light", spawn=sim_utils.DistantLightCfg(intensity=1000.0, color=(0.75, 0.75, 0.75))
     )
 
     # gyro robot
     gyro = GYRO_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
 
 
-def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera, rep_writer):
-    """Simple simulation loop - takes a picture and exits."""
+def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, camera, rep_writer, video_writer=None, num_frames=100):
+    """Simple simulation loop - records video and optionally takes a picture.
+    
+    Args:
+        sim: Simulation context
+        scene: Interactive scene
+        camera: Camera instance
+        rep_writer: Replicator BasicWriter for images
+        video_writer: Optional video writer for MP4 recording
+        num_frames: Number of frames to record (default: 100)
+    """
     count = 0
     
-    while simulation_app.is_running():
+    while simulation_app.is_running() and count < num_frames:
         # Step simulation
         sim.step()
         count += 1
@@ -94,13 +103,22 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
         # Write scene data
         scene.write_data_to_sim()
         
-        # Take a picture after a few steps (give time for scene to stabilize)
+        # Record frame to video (every frame)
+        if video_writer is not None:
+            record_frame(camera, video_writer, camera_index=0)
+        
+        # Take a single picture at frame 10 (optional)
         if count == 10:
             take_picture(camera, rep_writer, camera_index=0)
-            print("[INFO]: Picture taken! Exiting...")
-            # Stop the simulation app
-            simulation_app.close()
-            break
+            print(f"[INFO]: Picture saved at frame {count}")
+    
+    # Close video writer when done
+    if video_writer is not None:
+        video_writer.close()
+        print(f"[INFO]: Video recording complete! {count} frames recorded.")
+    
+    print("[INFO]: Simulation complete. Exiting...")
+    simulation_app.close()
 
 
 def main():
@@ -125,13 +143,20 @@ def main():
     camera_target = torch.tensor([[0.0, 0.0, 0.5]], device=sim.device)
     camera.set_world_poses_from_view(camera_position, camera_target)
     
-    # Setup camera writer
+    # Setup camera writer for images
     rep_writer = setup_camera_writer(camera, output_dir="/workspace/isaaclab/source/GimbalLock/output")
+    
+    # Setup video writer (optional - set to None to disable video recording)
+    video_writer = setup_video_writer(
+        output_path="/workspace/isaaclab/source/GimbalLock/output/gyro_robot.mp4",
+        fps=10,
+        quality=8
+    )
     
     print("[INFO]: Gyro robot simulation ready...")
     
-    # Run the simulator
-    run_simulator(sim, scene, camera, rep_writer)
+    # Run the simulator (records 100 frames by default)
+    run_simulator(sim, scene, camera, rep_writer, video_writer, num_frames=100)
 
 
 if __name__ == "__main__":

@@ -3,10 +3,11 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Simple camera module for taking pictures during simulation."""
+"""Simple camera module for taking pictures and recording videos during simulation."""
 
 import os
 import torch
+import imageio
 import omni.replicator.core as rep
 import isaacsim.core.utils.prims as prim_utils
 from isaaclab.sensors.camera import Camera, CameraCfg
@@ -71,6 +72,51 @@ def setup_camera_writer(camera: Camera, output_dir: str = "./output") -> rep.Bas
     )
     
     return rep_writer
+
+
+def setup_video_writer(output_path: str, fps: int = 30, quality: int = 8):
+    """Setup efficient video writer using imageio + ffmpeg.
+    
+    Args:
+        output_path: Path to output MP4 file
+        fps: Frames per second
+        quality: Quality level 0-10 (higher is better)
+        
+    Returns:
+        imageio writer instance or None if imageio not available
+    """
+    # Create output directory if needed
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    writer = imageio.get_writer(
+        output_path,
+        fps=fps,
+        codec='libx264',  # H.264 codec - widely compatible
+        quality=quality,  # 0-10, higher is better
+        pixelformat='yuv420p',  # Compatible with most players
+        macro_block_size=None
+    )
+    
+    print(f"[INFO]: Video writer initialized: {output_path}")
+    return writer
+
+
+def record_frame(camera: Camera, video_writer, camera_index: int = 0):
+    """Record a single frame to the video.
+    
+    Args:
+        camera: Camera instance to capture from
+        video_writer: imageio video writer instance
+        camera_index: Index of camera to use (default 0)
+    """
+    if video_writer is None:
+        return
+    
+    # Get RGB frame and convert to numpy (CPU)
+    rgb_frame = camera.data.output["rgb"][camera_index].cpu().numpy()
+    
+    # Write frame to video (encodes in real-time)
+    video_writer.append_data(rgb_frame)
 
 
 def take_picture(camera: Camera, rep_writer: rep.BasicWriter, camera_index: int = 0):
