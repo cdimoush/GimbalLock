@@ -103,13 +103,15 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
     joint_vel = torch.zeros_like(gyro.data.default_joint_vel)
     joint_vel[:, 2] = 1e6  # Set joint2 velocity to 1000 rad/s
     
-    # Write directly to simulation
+    # Write initial position to simulation
     gyro.write_joint_position_to_sim(joint_pos)
-    gyro.write_joint_velocity_to_sim(joint_vel)
     
-    print(f"[INFO]: Joint states written directly - Joint1: {np.pi/6:.3f} rad, Joint2: 1000 rad/s")
-    
+    print(f"[INFO]: Initial joint states set - Joint1: {np.pi/6:.3f} rad")
+        
     while simulation_app.is_running() and count < num_frames:
+        # Maintain constant velocity for joint2 by writing it every frame
+        gyro.write_joint_velocity_to_sim(joint_vel)
+        
         # Step simulation
         sim.step()
         count += 1
@@ -124,7 +126,8 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
         # Debug: Print joint2 position every frame
         joint2_pos_rad = gyro.data.joint_pos[0, 2].item()
         joint2_pos_deg = np.degrees(joint2_pos_rad)
-        print(f"[DEBUG] Frame {count}: Joint2 position = {joint2_pos_rad:.6f} rad ({joint2_pos_deg:.0f}°)")
+        joint2_vel = gyro.data.joint_vel[0, 2].item()
+        print(f"[DEBUG] Frame {count}: Joint2 position = {joint2_pos_rad:.6f} rad ({joint2_pos_deg:.0f}°), Joint2 velocity = {joint2_vel:.6f} rad/s")
         
         # Record frame to video (every frame)
         if video_writer is not None:
