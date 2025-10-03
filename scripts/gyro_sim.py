@@ -42,14 +42,14 @@ FPS = 10              # Video frame rate (frames per second)
 # Initial joint states
 INIT_JOINT_POS = {
     "joint0": 0.0,
-    "joint1": 0.0,
-    "joint2": np.pi / 4,
+    "joint1": np.pi / 4,
+    "joint2": 0.0,
 }
 
 INIT_JOINT_VEL = {
     "joint0": 0.0,
     "joint1": 0.0,
-    "joint2": 5e2,
+    "joint2": 1e3,
 }
 
 
@@ -231,10 +231,10 @@ def main():
     gyro_robot.write_joint_effort_limit_to_sim(1e9)
     
     # Remove all resistance to motion
-    gyro_robot.write_joint_stiffness_to_sim(0.001)
-    gyro_robot.write_joint_damping_to_sim(0.001)
-    gyro_robot.write_joint_armature_to_sim(0.001)
-    gyro_robot.write_joint_friction_coefficient_to_sim(0.001)
+    gyro_robot.write_joint_stiffness_to_sim(0.1)
+    gyro_robot.write_joint_damping_to_sim(0.1)
+    gyro_robot.write_joint_armature_to_sim(1e-6)
+    gyro_robot.write_joint_friction_coefficient_to_sim(1e-6)
     
     print("[INFO]: Joint limits set to 1e9, all resistance parameters set to 0")
     
