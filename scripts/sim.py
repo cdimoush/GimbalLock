@@ -55,7 +55,7 @@ GYRO_CONFIG = ArticulationCfg(
         "joints": ImplicitActuatorCfg(
             joint_names_expr=[".*"],
             effort_limit_sim=100.0,
-            velocity_limit_sim=100.0,
+            velocity_limit_sim=1e9,
             stiffness=10000.0,
             damping=100.0,
         )
@@ -100,20 +100,16 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, cam
     joint_pos = gyro.data.default_joint_pos.clone()
     joint_pos[:, 1] = np.pi / 6  # Set joint1 to pi/6 radians
     
-    joint_vel = torch.zeros_like(gyro.data.default_joint_vel)
-    joint_vel[:, 2] = 1e6  # Set joint2 velocity to 1000 rad/s
-    
-    # Write initial position to simulation
+    # Write directly to simulation
     gyro.write_joint_position_to_sim(joint_pos)
-    
-    print(f"[INFO]: Initial joint states set - Joint1: {np.pi/6:.3f} rad")
         
     while simulation_app.is_running() and count < num_frames:
-        # Maintain constant velocity for joint2 by writing it every frame
-        gyro.write_joint_velocity_to_sim(joint_vel)
-        
         # Step simulation
+        joint_vel = gyro.data.joint_vel.clone()
+        joint_vel[:, 2] = 1e3
+        gyro.write_joint_velocity_to_sim(joint_vel)
         sim.step()
+        gyro.update(sim.get_physics_dt())
         count += 1
         
         # Update scene and camera
