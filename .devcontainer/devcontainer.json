@@ -103,6 +103,11 @@
             "/workspace/isaaclab/source/isaaclab",
             "/workspace/isaaclab/source/GimbalLock"
           ],
+          "cursorpyright.analysis.extraPaths": [
+            "/isaac-sim/exts",
+            "/workspace/isaaclab/source/isaaclab",
+            "/workspace/isaaclab/source/GimbalLock"
+          ],
           "python.linting.enabled": true,
           "terminal.integrated.defaultProfile.linux": "bash",
           "terminal.integrated.profiles.linux": {

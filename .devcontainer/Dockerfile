@@ -3,6 +3,7 @@ ARG ISAACSIM_VERSION=5.0.0
 FROM nvcr.io/nvidia/isaac-sim:${ISAACSIM_VERSION}
 
 # Set build argument as environment variable for consistency
+ARG ISAACSIM_VERSION
 ENV ISAACSIM_VERSION=${ISAACSIM_VERSION}
 
 # Prevent interactive prompts during apt installs
