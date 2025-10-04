@@ -1,82 +1,94 @@
 # GimbalLock
 
-A gyroscope modeling and simulation project that bridges Onshape CAD and physics simulator(s) to explore a conceptual system identification problem.
+A gyroscope simulation project for physics-based modeling and system identification using Isaac Lab.
 
 ## Purpose
 
-The goal of **GimbalLock** is to model a gyroscope in Onshape, convert it into a URDF using *onshape-to-robot*, generate simulation assets for multiple simulators, and perform system identification of the gyroscope across those environments.
-
-**Currently only using Isaac Lab**
+**GimbalLock** bridges CAD design and physics simulation by converting an Onshape gyroscope model to Isaac Lab (USD) format. The project provides tools to simulate gyroscope dynamics, log joint data, and capture video—laying groundwork for system identification experiments.
 
 ## Project Structure
 
 ```
 GimbalLock/
-├── .devcontainer/  # VS Code dev container configuration
-├── src/            # Source Code 
-|    ├── sys_id/    # System Identification methods 
-│    ├── isaac/     # Isaac integration
-│    └── mujoco/    # MuJoCo integration (Aspiration)
-├── scripts/        # Excutables  
-├── models/         # Robot descriptions (URDF/USD/Onshape conversions)
-├── docs/           # Diagrams, notes, writeups
-├── requirements.txt # Python dependencies
-└── README.md       # Project overview
+├── src/                # Source code modules
+│   ├── camera.py       # Camera utilities for simulation video/image capture
+│   ├── joint_logger.py # Joint data logging and plotting
+│   ├── sim/            # Simulator integrations (isaac, mujoco)
+│   └── sys_id/         # System identification methods (future)
+├── scripts/            # Executable scripts
+│   ├── model.py        # Generate URDF/MJCF from Onshape URL
+│   ├── gyro_usd.py     # Convert URDF to USD format
+│   ├── gyro_sim.py     # Main Isaac Lab simulation
+│   └── test_sim.py     # Test simulation configurations
+├── models/gyro/        # Robot model assets (URDF, USD, MJCF, meshes)
+├── output/             # Simulation outputs (videos, plots)
+├── docs/               # Documentation and notes
+└── requirements.txt    # Python dependencies
 ```
+
+## Workflow
+
+### 1. Generate Robot Models from Onshape
+
+Convert an Onshape assembly to URDF and MJCF formats:
+
+```bash
+python scripts/model.py <onshape_url>
+```
+
+This generates:
+- URDF: `models/gyro/urdf/robot.urdf`
+- MJCF: `models/gyro/mjcf/robot.xml`
+- Mesh assets: `models/gyro/assets/`
+
+### 2. Convert URDF to USD
+
+Prepare the model for Isaac Lab simulation:
+
+```bash
+python scripts/gyro_usd.py
+```
+
+Outputs USD file to `models/gyro/usd/robot.usd`
+
+### 3. Run Simulation
+
+Launch the gyroscope simulation in Isaac Lab:
+
+```bash
+# Headless mode with cameras for video recording
+python scripts/gyro_sim.py --headless --enable_cameras
+
+# Interactive mode with GUI (requires display)
+python scripts/gyro_sim.py --num_envs 1
+```
+
+Simulation outputs (videos, joint plots) are saved to `output/`
+
+## EC2 Workflow
+
+For running simulations on AWS EC2 with DCV (NICE DCV remote desktop):
+
+### Setup
+- [Installing Linux Prerequisites](https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-prereq.html)
+- [Installing DCV Server on Linux](https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-server.html)
+
+### Start DCV Session
+
+```bash
+sudo dcv create-session my-console-session --type=console --owner ubuntu
+dcv list-sessions
+```
+
+Connect via browser at `https://<ec2-ip>:<port>` to access the virtual Ubuntu desktop.
 
 ## Development Environment
 
-### VS Code Dev Container (Recommended)
-
-This project includes a VS Code dev container for a seamless development experience.
+This project runs inside Isaac Lab's devcontainer, which provides a complete Isaac Sim + Isaac Lab environment with all dependencies pre-configured (PyTorch, CUDA, USD libraries, and robotics tools).
 
 **Prerequisites:**
-- VS Code with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 - Docker Desktop
+- VS Code with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+- NVIDIA GPU with updated drivers (for physics simulation)
 
-TODO add dev container stuff later. 
-
-## Usage
-
-### Generate Robot Models
-
-Generate URDF and MuJoCo models from an Onshape assembly:
-
-```bash
-python scripts/model.py https://cad.onshape.com/documents/d9033effb682bcc1f574e56d/w/6d5aea9da7909d1356cfc92f/e/b16349724e740b7cd7040f0b
-```
-
-The script:
-- Parses the Onshape URL to extract document/workspace/element IDs
-- Builds the robot model using onshape-to-robot
-- Exports to both URDF (`models/gyro/urdf/`) and MuJoCo MJCF (`models/gyro/mjcf/`)
-- Downloads mesh assets to `models/gyro/assets/`
-
-Use the USD tool
-
-python scripts/tools/convert_urdf.py /workspace/isaaclab/source/GimbalLock/models/gyro/urdf/robot.urdf /workspace/isaaclab/source/GimbalLock/models/gyro/usd/robot.usd --merge-joints --joint-stiffness 0.0 --joint-damping 0.0 --joint-target-type none --headless
-
-Now I have custom USD tool
-python scripts/gyro_usd.py
-
-
-Run the SIM
-python scripts/gyro_sim.py --headless --enable_cameras
-
-
-# EC2 Workflow
-## DCV Linux Server 
-
-### Setup
-https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-prereq.html
-
-https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-server.html
-
-### Using
-https://docs.aws.amazon.com/dcv/latest/adminguide/manage-start.html
-
-$ sudo dcv create-session my-console-session --type=console --owner ubuntu
-$ dcv list-sessions
-
-
-Once a session is running, go to https://ip_address:port and virtual ubuntu machine can be seen through browser. 
+Clone this project into Isaac Lab's `source/` directory and use the Isaac Lab devcontainer for seamless development. The container handles all complex dependencies—just open and code.
