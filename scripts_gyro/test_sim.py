@@ -79,10 +79,6 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         scene.write_data_to_sim()
         sim.step()
         scene.update(sim.get_physics_dt())
-        count += 1
-        if count > 10:
-            print("[INFO]: Simulation complete.")
-            break
 
 
 def main():
