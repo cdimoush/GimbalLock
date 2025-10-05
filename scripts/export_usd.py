@@ -18,7 +18,7 @@ from isaaclab.app import AppLauncher
 # Hard-coded configuration
 URDF_PATH = "/workspace/isaaclab/source/GimbalLock/models/gripper/urdf/robot.urdf"
 USD_PATH = "/workspace/isaaclab/source/GimbalLock/models/gripper/usd/robot.usd"
-MERGE_JOINTS = True
+MERGE_JOINTS = False
 FIX_BASE = False
 JOINT_STIFFNESS = 0.0
 JOINT_DAMPING = 0.0

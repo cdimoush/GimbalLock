@@ -26,7 +26,7 @@ from isaaclab.assets.articulation import Articulation, ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.actuators import ImplicitActuatorCfg
 
-# Gyro robot configuration
+# Gripper robot configuration
 GRIPPER_CONFIG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path="/workspace/isaaclab/source/GimbalLock/models/gripper/usd/robot.usd",
@@ -57,7 +57,7 @@ GRIPPER_CONFIG = ArticulationCfg(
 )
 
 
-class GyroSceneCfg(InteractiveSceneCfg):
+class GripperSceneCfg(InteractiveSceneCfg):
     """Simple scene with just the gripper robot."""
     # lights
     dome_light = AssetBaseCfg(
@@ -65,7 +65,7 @@ class GyroSceneCfg(InteractiveSceneCfg):
     )
 
     # gripper robot
-    gripper = GRIPPER_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
+    gripper = GRIPPER_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gripper")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
@@ -78,8 +78,14 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     """
     # Simulation Loop
     robot: Articulation = scene["gripper"]
+
+    # Robot Details
+    print(f"Loaded the Robot!")
+    print(f"  Joint Names: {robot.joint_names}")
+    print(f"  Body Names: {robot.body_names}")
+
+    # Get joint limits
     joint_limits = robot.data.joint_limits.clone()
-    print(f"Shape of joint_limits: {joint_limits}")
     jp0 = torch.zeros_like(robot.data.joint_pos)
     jp0[:, 0] = joint_limits[0, 0, 0]
     jp0[:, 1] = joint_limits[0, 1, 1]
@@ -111,12 +117,12 @@ def main():
     sim.set_camera_view([0.1, 0.1, 0.1], [0.0, 0.0, 0.0])
     
     # Design scene
-    scene_cfg = GyroSceneCfg(args_cli.num_envs, env_spacing=2.0)
+    scene_cfg = GripperSceneCfg(args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
     
     # Play the simulator
     sim.reset()
-    print("[INFO]: Gyro robot simulation ready...")
+    print("[INFO]: Gripper robot simulation ready...")
     
     # Run the simulator
     run_simulator(sim, scene)
