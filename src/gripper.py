@@ -11,6 +11,7 @@ import torch
 from typing import Sequence, TYPE_CHECKING
 
 import isaaclab.sim as sim_utils
+import isaaclab.utils.math as math_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import Articulation, ArticulationCfg
 from isaaclab.utils import configclass
@@ -53,12 +54,12 @@ class Gripper(Articulation):
 
     @property
     def gap(self) -> torch.Tensor:
-        """Gap between the gripper fingers. Shape: (num_envs,)"""
+        """Gap for each gripper finger (distance from root projected onto root y-axis). Shape: (num_envs, 2)"""
         return self._compute_gap()
 
     @property
     def gap_velocity(self) -> torch.Tensor:
-        """Gap velocity between the gripper fingers. Shape: (num_envs,)"""
+        """Gap velocity magnitude for each gripper finger. Shape: (num_envs, 2)"""
         return self._compute_gap_velocity()
     
     """
@@ -90,27 +91,30 @@ class Gripper(Articulation):
         """Write gripper forces to simulation based on pressure control.
         
         Overrides parent method to implement custom pressure-based force control:
-        1. Compute current gap and gap velocity from finger positions/velocities
-        2. Compute target gap from pressure: gap_target = a + b * pressure
-        3. Compute control force: tau = kp * (gap_target - gap) - kd * gap_dot
-        4. Apply symmetric forces to both finger joints
+        1. Compute current gap and gap velocity from finger positions/velocities (per-finger)
+        2. Compute target gap from pressure: gap_target = (a + b * pressure) / 2 for each finger
+        3. Compute control force per finger: tau = kp * (gap_target - gap) - kd * gap_dot
+        4. Apply forces to both finger joints
         5. Write forces directly to PhysX
         """
-        # 1. Compute current gap and gap velocity
+        # 1. Compute current per-finger gaps and velocities [num_envs, 2]
         g = self._compute_gap()
         gdot = self._compute_gap_velocity()
 
-        # 2. Compute target gap from pressure
-        gt = self._compute_gap_target(self._target_pressure)
+        # 2. Compute target total gap from pressure [num_envs]
+        gt_total = self._compute_gap_target(self._target_pressure)
+        
+        # 3. Split target equally between fingers [num_envs, 1]
+        gt = (gt_total / 2.0).unsqueeze(-1)
 
-        # 3. Compute control force: tau = kp * (gap_target - gap) - kd * gap_dot
+        # 4. Compute per-finger control forces [num_envs, 2]
         tau = self._kp * (gt - g) - self._kd * gdot
 
-        # 4. Apply symmetric forces to both finger joints
-        self._joint_effort_target_sim[:, 0] = -tau
-        self._joint_effort_target_sim[:, 1] = tau
+        # 5. Apply forces to both finger joints using cached indices
+        self._joint_effort_target_sim[:, self._finger_joint_indices[0]] = -tau[:, 0]
+        self._joint_effort_target_sim[:, self._finger_joint_indices[1]] = tau[:, 1]
 
-        # 5. Write forces directly to PhysX
+        # 6. Write forces directly to PhysX
         self.root_physx_view.set_dof_actuation_forces(self._joint_effort_target_sim, self._ALL_INDICES)
     
     """
@@ -122,11 +126,18 @@ class Gripper(Articulation):
         # Call parent initialization first
         super()._initialize_impl()
         
+        # Cache finger body and joint indices
+        self._finger_body_indices, _ = self.find_bodies([".*ft0.*", ".*ft1.*"])
+        self._finger_joint_indices, _ = self.find_joints([".*f0", ".*f1"])
+        
         # Initialize pressure buffer
         self._target_pressure = torch.zeros(self.num_instances, device=self.device)
         self._kp = self.cfg.kp
         self._kd = self.cfg.kd
         self._pressure_to_gap_mapping = self.cfg.pressure_to_gap_mapping
+        
+        # Define y-axis in local frame (constant)
+        self._projection_axis_local = torch.tensor([0.0, 1.0, 0.0], device=self.device)
 
 
     def _compute_gap_target(self, pressure: torch.Tensor) -> torch.Tensor:
@@ -173,40 +184,39 @@ class Gripper(Articulation):
         return m * pressure + b
     
     def _compute_gap(self) -> torch.Tensor:
-        """Compute current gap width between gripper fingers by the norm of the difference in positions.
+        """Compute gap for each finger as distance from root projected onto root's y-axis.
         
         Returns:
-            Gap width for each environment. Shape: (num_envs,)
+            Gap for each finger. Shape: (num_envs, 2)
         """
-        index, names = self.find_bodies([".*ft0.*", ".*ft1.*"])
-        pos = self.data.body_pos_w[:, index]
-        return torch.norm(pos[:, 0] - pos[:, 1], dim=1)
+        # Get root data from parent class (already in world frame)
+        root_pos = self.data.root_link_pos_w  # [num_envs, 3]
+        root_quat = self.data.root_link_quat_w  # [num_envs, 4] (w,x,y,z)
+        
+        # Get finger tip positions using cached indices
+        finger_pos = self.data.body_link_pos_w[:, self._finger_body_indices]  # [num_envs, 2, 3]
+        
+        # Transform local y-axis to world frame using parent's math utils
+        projection_axis_world = math_utils.quat_apply(root_quat, self._projection_axis_local.unsqueeze(0))  # [num_envs, 3]
+        
+        # Compute vectors from root to each finger
+        root_to_fingers = finger_pos - root_pos.unsqueeze(1)  # [num_envs, 2, 3]
+        
+        # Project onto y-axis: dot product
+        gaps = torch.sum(root_to_fingers * projection_axis_world.unsqueeze(1), dim=-1)  # [num_envs, 2]
+        
+        return gaps
     
     def _compute_gap_velocity(self) -> torch.Tensor:
-        """Compute current gap velocity (rate of change of gap width) by the average absolute projection of the velocity on the line between the fingers.
+        """Compute gap velocity for each finger (magnitude of finger velocity).
         
         Returns:
-            Gap velocity for each environment. Shape: (num_envs,)
-            Positive = opening, negative = closing
+            Gap velocity magnitude for each finger. Shape: (num_envs, 2)
         """
-        # Get finger body indices
-        index, names = self.find_bodies([".*ft0.*", ".*ft1.*"])
+        # Get finger velocities using cached indices
+        finger_lin_vel = self.data.body_link_vel_w[:, self._finger_body_indices, :3]  # [num_envs, 2, 3]
         
-        # Get positions and velocities in world frame [num_envs, 2, 3]
-        pos = self.data.body_pos_w[:, index]  # [num_envs, 2, 3]
-        vel = self.data.body_vel_w[:, index, :3]  # [num_envs, 2, 3] (linear velocity only)
+        # Compute magnitude of each finger's velocity
+        gap_vel = torch.norm(finger_lin_vel, dim=-1)  # [num_envs, 2]
         
-        # Compute gap vector (from finger 1 to finger 0)
-        gap_vector = pos[:, 0] - pos[:, 1]  # [num_envs, 3]
-        gap_distance = torch.norm(gap_vector, dim=1, keepdim=True)  # [num_envs, 1]
-        
-        # Compute unit vector along gap direction
-        gap_direction = gap_vector / (gap_distance + 1e-8)  # [num_envs, 3], add epsilon to avoid division by zero
-        
-        # Compute relative velocity (finger 0 velocity - finger 1 velocity)
-        relative_velocity = vel[:, 0] - vel[:, 1]  # [num_envs, 3]
-        
-        # Project relative velocity onto gap direction
-        gap_velocity = torch.sum(relative_velocity * gap_direction, dim=1)  # [num_envs]
-        
-        return gap_velocity
+        return gap_vel
