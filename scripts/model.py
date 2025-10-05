@@ -44,7 +44,7 @@ def create_temp_config(document_id, workspace_id, version_id, element_id, output
     config = {
         "document_id": document_id,
         "element_id": element_id,
-        "robot_name": "gyro",
+        "robot_name": "gripper",
         "output_format": output_format,
         "output_filename": "robot",
         "assets_directory": "assets",
@@ -74,7 +74,7 @@ def cleanup():
     """
     Remove all files with .part extension in assets/
     """
-    assets_dir = Path(__file__).parent.parent / "models" / "gyro" / "assets"
+    assets_dir = Path(__file__).parent.parent / "models" / "gripper" / "assets"
     for file in assets_dir.glob("*.part"):
         os.remove(file)
 
@@ -101,7 +101,7 @@ def main():
         sys.exit(1)
 
     # Create output directories
-    base_dir = Path(__file__).parent.parent / "models" / "gyro"
+    base_dir = Path(__file__).parent.parent / "models" / "gripper"
     urdf_dir = base_dir / "urdf"
     mjcf_dir = base_dir / "mjcf"
     assets_dir = base_dir / "assets"

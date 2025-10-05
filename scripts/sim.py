@@ -8,7 +8,7 @@ import argparse
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="Simple gyro robot simulation.")
+parser = argparse.ArgumentParser(description="Simple gripper robot simulation.")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -19,22 +19,23 @@ args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
+import torch
 import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg
-from isaaclab.assets.articulation import ArticulationCfg
+from isaaclab.assets.articulation import Articulation, ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.actuators import ImplicitActuatorCfg
 
 # Gyro robot configuration
-GYRO_CONFIG = ArticulationCfg(
+GRIPPER_CONFIG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="/workspace/isaaclab/source/GimbalLock/models/gyro/usd/robot.usd",
+        usd_path="/workspace/isaaclab/source/GimbalLock/models/gripper/usd/robot.usd",
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
             max_depenetration_velocity=5.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-            enabled_self_collisions=True, 
+            enabled_self_collisions=False, 
             solver_position_iteration_count=8, 
             solver_velocity_iteration_count=0,
             fix_root_link=True,
@@ -49,7 +50,7 @@ GYRO_CONFIG = ArticulationCfg(
             joint_names_expr=[".*"],
             effort_limit_sim=100.0,
             velocity_limit_sim=100.0,
-            stiffness=10000.0,
+            stiffness=1000.0,
             damping=100.0,
         )
     },
@@ -57,40 +58,57 @@ GYRO_CONFIG = ArticulationCfg(
 
 
 class GyroSceneCfg(InteractiveSceneCfg):
-    """Simple scene with just the gyro robot."""
-
-    # Ground-plane
-    ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
-
+    """Simple scene with just the gripper robot."""
     # lights
     dome_light = AssetBaseCfg(
-        prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
+        prim_path="/World/Light", spawn=sim_utils.DistantLightCfg(intensity=1000.0, color=(0.75, 0.75, 0.75))
     )
 
-    # gyro robot
-    gyro = GYRO_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
+    # gripper robot
+    gripper = GRIPPER_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Gyro")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
-    """Simple simulation loop - robot just sits there."""
+    """Simple simulation loop
+    
+    1) Position control
+    
+    
+    
+    """
+    # Simulation Loop
+    robot: Articulation = scene["gripper"]
+    joint_limits = robot.data.joint_limits.clone()
+    print(f"Shape of joint_limits: {joint_limits}")
+    jp0 = torch.zeros_like(robot.data.joint_pos)
+    jp0[:, 0] = joint_limits[0, 0, 0]
+    jp0[:, 1] = joint_limits[0, 1, 1]
+    jp1 = torch.zeros_like(robot.data.joint_pos)
+    jp1[:, 0] = joint_limits[0, 0, 1]
+    jp1[:, 1] = joint_limits[0, 1, 0]
+    target = jp0
+
     count = 0
     while simulation_app.is_running():
         # No actions - robot just sits there
+        if count % 100 == 0:
+            if torch.equal(target, jp0):
+                target = jp1
+            else:
+                target = jp0
+
+        robot.set_joint_position_target(target)
         scene.write_data_to_sim()
         sim.step()
         scene.update(sim.get_physics_dt())
         count += 1
-        if count > 10:
-            print("[INFO]: Simulation complete.")
-            break
-
 
 def main():
     """Main function."""
     # Initialize the simulation context
     sim_cfg = sim_utils.SimulationCfg(device=args_cli.device)
     sim = sim_utils.SimulationContext(sim_cfg)
-    sim.set_camera_view([2.0, 0.0, 2.0], [0.0, 0.0, 0.5])
+    sim.set_camera_view([0.1, 0.1, 0.1], [0.0, 0.0, 0.0])
     
     # Design scene
     scene_cfg = GyroSceneCfg(args_cli.num_envs, env_spacing=2.0)

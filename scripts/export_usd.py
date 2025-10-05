@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Utility to convert the gyro URDF into USD format.
+Utility to convert the gripper URDF into USD format.
 
-This script converts the gyro robot URDF to USD format with hardcoded paths and parameters.
+This script converts the gripper robot URDF to USD format with hardcoded paths and parameters.
 """
 
 """Launch Isaac Sim Simulator first."""
@@ -16,8 +16,8 @@ import argparse
 from isaaclab.app import AppLauncher
 
 # Hard-coded configuration
-URDF_PATH = "/workspace/isaaclab/source/GimbalLock/models/gyro/urdf/robot.urdf"
-USD_PATH = "/workspace/isaaclab/source/GimbalLock/models/gyro/usd/robot.usd"
+URDF_PATH = "/workspace/isaaclab/source/GimbalLock/models/gripper/urdf/robot.urdf"
+USD_PATH = "/workspace/isaaclab/source/GimbalLock/models/gripper/usd/robot.usd"
 MERGE_JOINTS = True
 FIX_BASE = False
 JOINT_STIFFNESS = 0.0
@@ -25,7 +25,7 @@ JOINT_DAMPING = 0.0
 JOINT_TARGET_TYPE = "none"
 
 # Create minimal parser for AppLauncher
-parser = argparse.ArgumentParser(description="Convert gyro URDF to USD format.")
+parser = argparse.ArgumentParser(description="Convert gripper URDF to USD format.")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
@@ -98,7 +98,8 @@ def main():
     # Remove joint limits and create temporary URDF
     print("-" * 80)
     print("Removing joint limits from URDF...")
-    temp_urdf_path = remove_joint_limits_from_urdf(original_urdf_path)
+    # temp_urdf_path = remove_joint_limits_from_urdf(original_urdf_path)
+    temp_urdf_path = original_urdf_path
     print("-" * 80)
     
     # create destination path

@@ -33,7 +33,7 @@ GimbalLock/
 Convert an Onshape assembly to URDF and MJCF formats:
 
 ```bash
-python scripts/model.py <onshape_url>
+python scripts/model.py 
 ```
 
 This generates:
