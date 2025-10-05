@@ -37,7 +37,7 @@ class GripperSceneCfg(InteractiveSceneCfg):
     # lights
     dome_light = AssetBaseCfg(
         prim_path="/World/Light", 
-        spawn=sim_utils.DistantLightCfg(intensity=1000.0, color=(0.75, 0.75, 0.75))
+        spawn=sim_utils.DiskLightCfg(intensity=1000.0, color=(0.75, 0.75, 0.75))
     )
     
     # gripper robot with pressure control
@@ -60,7 +60,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     print(f"  Pressure Mapping: gap = {gripper.cfg.pressure_to_gap_a} + {gripper.cfg.pressure_to_gap_b} * pressure")
     
     # Define pressure targets
-    pressure_low = torch.zeros(gripper.num_instances, device=gripper.device)
+    pressure_low = torch.ones(gripper.num_instances, device=gripper.device) * -10.0
     pressure_high = torch.ones(gripper.num_instances, device=gripper.device) * 10.0
     
     current_pressure = pressure_low.clone()
@@ -75,7 +75,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
                 print(f"\n[Frame {count}] Switching to HIGH pressure (10.0)")
             else:
                 current_pressure = pressure_low.clone()
-                print(f"\n[Frame {count}] Switching to LOW pressure (0.0)")
+                print(f"\n[Frame {count}] Switching to LOW pressure (-10.0)")
         
         # Set pressure (this updates internal target)
         gripper.set_pressure(current_pressure)

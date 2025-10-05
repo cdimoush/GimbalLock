@@ -69,4 +69,3 @@ GRIPPER_CFG = GripperCfg(
     pressure_to_gap_a=0.0,
     pressure_to_gap_b=0.05,
 )
-

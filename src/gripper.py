@@ -50,6 +50,16 @@ class Gripper(Articulation):
     def target_pressure(self) -> torch.Tensor:
         """Target pressure for each environment. Shape: (num_envs,)"""
         return self._target_pressure
+
+    @property
+    def gap(self) -> torch.Tensor:
+        """Gap between the gripper fingers. Shape: (num_envs,)"""
+        return self._compute_gap()
+
+    @property
+    def gap_velocity(self) -> torch.Tensor:
+        """Gap velocity between the gripper fingers. Shape: (num_envs,)"""
+        return self._compute_gap_velocity()
     
     """
     Operations - Setters
@@ -65,8 +75,20 @@ class Gripper(Articulation):
             pressure: Target pressure values. Shape: (len(env_ids),) or (num_envs,)
             env_ids: Environment indices to set pressure for. If None, sets for all environments.
         """
-        # TODO: Implement pressure setting
-        pass
+        # Store target pressure
+        if env_ids is None:
+            self._target_pressure[:] = pressure
+        else:
+            self._target_pressure[env_ids] = pressure
+        
+        # Simple three-state control (open/close/neutral)
+        mag = torch.tensor([10.0, -10.0], device=self.device)
+        index, _ = self.find_joints([".*f0", ".*f1"])
+        
+        # Compute forces using sign and broadcasting [num_envs, 2]
+        sign = torch.sign(pressure).unsqueeze(1)  # [num_envs, 1]
+        forces = sign * mag.unsqueeze(0)  # [num_envs, 2]
+        self._joint_effort_target_sim[:, index] = forces
     
     """
     Operations - Write to Simulation
@@ -82,10 +104,8 @@ class Gripper(Articulation):
         4. Apply symmetric forces to both finger joints
         5. Write forces directly to PhysX
         """
-        # TODO: Implement force computation and application
-        # Hint: Use self._compute_gap() and self._compute_gap_velocity()
-        # Hint: Apply forces with self.root_physx_view.set_dof_actuation_forces()
-        pass
+        # Step 5, only now
+        self.root_physx_view.set_dof_actuation_forces(self._joint_effort_target_sim, self._ALL_INDICES)
     
     """
     Internal Helpers
@@ -96,9 +116,8 @@ class Gripper(Articulation):
         # Call parent initialization first
         super()._initialize_impl()
         
-        # TODO: Initialize pressure buffer
-        # Hint: self._target_pressure = torch.zeros(self.num_instances, device=self.device)
-        pass
+        # Initialize pressure buffer
+        self._target_pressure = torch.zeros(self.num_instances, device=self.device)
     
     def _compute_gap(self) -> torch.Tensor:
         """Compute current gap width between gripper fingers.
