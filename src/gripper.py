@@ -80,8 +80,8 @@ class Gripper(Articulation):
             self._target_pressure[:] = pressure
         else:
             self._target_pressure[env_ids] = pressure
-        
-        # Simple three-state control (open/close/neutral)
+
+        # Simple binary control
         mag = torch.tensor([10.0, -10.0], device=self.device)
         index, _ = self.find_joints([".*f0", ".*f1"])
         
@@ -89,6 +89,10 @@ class Gripper(Articulation):
         sign = torch.sign(pressure).unsqueeze(1)  # [num_envs, 1]
         forces = sign * mag.unsqueeze(0)  # [num_envs, 2]
         self._joint_effort_target_sim[:, index] = forces
+
+        # For the sake of prototyping, calculate the gap target (not used yet)
+        self._gap_target = self._compute_gap_target(pressure)
+        print(f"DEBUG: GAP TARGET: {self._gap_target}")
     
     """
     Operations - Write to Simulation
@@ -104,6 +108,7 @@ class Gripper(Articulation):
         4. Apply symmetric forces to both finger joints
         5. Write forces directly to PhysX
         """
+
         # Step 5, only now
         self.root_physx_view.set_dof_actuation_forces(self._joint_effort_target_sim, self._ALL_INDICES)
     
@@ -118,25 +123,90 @@ class Gripper(Articulation):
         
         # Initialize pressure buffer
         self._target_pressure = torch.zeros(self.num_instances, device=self.device)
+        self._kp = self.cfg.kp
+        self._kd = self.cfg.kd
+        self._pressure_to_gap_mapping = self.cfg.pressure_to_gap_mapping
+
+
+    def _compute_gap_target(self, pressure: torch.Tensor) -> torch.Tensor:
+        """Compute target gap width based on pressure.
+
+        1) Fit the gap to pressure mapping to a linear function
+        2) Use the linear function to compute the target gap
+        
+        Returns:
+            Target gap width for each environment. Shape: (num_envs,)
+        """
+        # 1) Fit the map y = m*x + b using least squares on-the-fly
+        # Mapping format: [[pressure, gap], ...]
+        mapping_tensor = torch.as_tensor(
+            self._pressure_to_gap_mapping,
+            dtype=pressure.dtype,
+            device=pressure.device,
+        )
+
+        # Ensure we have at least two points; if not, fall back to mean gap
+        if mapping_tensor.ndim != 2 or mapping_tensor.shape[1] != 2 or mapping_tensor.shape[0] == 0:
+            # Degenerate mapping, return zeros
+            return torch.zeros_like(pressure)
+
+        x = mapping_tensor[:, 0]
+        y = mapping_tensor[:, 1]
+
+        # Handle single-point mapping gracefully
+        if x.numel() == 1:
+            m = torch.zeros((), dtype=pressure.dtype, device=pressure.device)
+            b = y[0]
+        else:
+            x_mean = x.mean()
+            y_mean = y.mean()
+            denom = torch.sum((x - x_mean) ** 2)
+            if torch.abs(denom) < 1e-12:
+                # Nearly vertical/constant x; default to zero slope
+                m = torch.zeros((), dtype=pressure.dtype, device=pressure.device)
+            else:
+                m = torch.sum((x - x_mean) * (y - y_mean)) / denom
+            b = y_mean - m * x_mean
+
+        # 2) Use the linear function to compute the target gap
+        return m * pressure + b
     
     def _compute_gap(self) -> torch.Tensor:
-        """Compute current gap width between gripper fingers.
+        """Compute current gap width between gripper fingers by the norm of the difference in positions.
         
         Returns:
             Gap width for each environment. Shape: (num_envs,)
         """
-        # TODO: Implement gap computation
-        # Hint: Get finger body positions from self.data
-        # Hint: Return scalar distance between fingertip bodies
-        pass
+        index, names = self.find_bodies([".*ft0.*", ".*ft1.*"])
+        pos = self.data.body_pos_w[:, index]
+        print(f"DEBUG: FINGER POSITIONS: {pos}")
+        return torch.norm(pos[:, 0] - pos[:, 1], dim=1)
     
     def _compute_gap_velocity(self) -> torch.Tensor:
-        """Compute current gap velocity (rate of change of gap width).
+        """Compute current gap velocity (rate of change of gap width) by the average absolute projection of the velocity on the line between the fingers.
         
         Returns:
             Gap velocity for each environment. Shape: (num_envs,)
+            Positive = opening, negative = closing
         """
-        # TODO: Implement gap velocity computation
-        # Hint: Get finger body velocities from self.data
-        # Hint: Return relative velocity (positive = opening, negative = closing)
-        pass
+        # Get finger body indices
+        index, names = self.find_bodies([".*ft0.*", ".*ft1.*"])
+        
+        # Get positions and velocities in world frame [num_envs, 2, 3]
+        pos = self.data.body_pos_w[:, index]  # [num_envs, 2, 3]
+        vel = self.data.body_vel_w[:, index, :3]  # [num_envs, 2, 3] (linear velocity only)
+        
+        # Compute gap vector (from finger 1 to finger 0)
+        gap_vector = pos[:, 0] - pos[:, 1]  # [num_envs, 3]
+        gap_distance = torch.norm(gap_vector, dim=1, keepdim=True)  # [num_envs, 1]
+        
+        # Compute unit vector along gap direction
+        gap_direction = gap_vector / (gap_distance + 1e-8)  # [num_envs, 3], add epsilon to avoid division by zero
+        
+        # Compute relative velocity (finger 0 velocity - finger 1 velocity)
+        relative_velocity = vel[:, 0] - vel[:, 1]  # [num_envs, 3]
+        
+        # Project relative velocity onto gap direction
+        gap_velocity = torch.sum(relative_velocity * gap_direction, dim=1)  # [num_envs]
+        
+        return gap_velocity

@@ -56,9 +56,7 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     print(f"Loaded the Gripper!")
     print(f"  Joint Names: {gripper.joint_names}")
     print(f"  Body Names: {gripper.body_names}")
-    print(f"  PD Gains: kp={gripper.cfg.kp}, kd={gripper.cfg.kd}")
-    print(f"  Pressure Mapping: gap = {gripper.cfg.pressure_to_gap_a} + {gripper.cfg.pressure_to_gap_b} * pressure")
-    
+        
     # Define pressure targets
     pressure_low = torch.ones(gripper.num_instances, device=gripper.device) * -10.0
     pressure_high = torch.ones(gripper.num_instances, device=gripper.device) * 10.0
@@ -72,11 +70,12 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         if count % 100 == 0:
             if torch.equal(current_pressure, pressure_low):
                 current_pressure = pressure_high.clone()
-                print(f"\n[Frame {count}] Switching to HIGH pressure (10.0)")
             else:
                 current_pressure = pressure_low.clone()
-                print(f"\n[Frame {count}] Switching to LOW pressure (-10.0)")
-        
+            print(f"DEBUG: CURRENT FINGER GAP: {gripper.gap}")        
+
+            
+
         # Set pressure (this updates internal target)
         gripper.set_pressure(current_pressure)
         

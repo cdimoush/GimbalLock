@@ -26,14 +26,11 @@ class GripperCfg(ArticulationCfg):
     
     kd: float = 10.0
     """Derivative gain for gap controller."""
-    
-    # Pressure to gap mapping: gap = a + b * pressure
-    pressure_to_gap_a: float = 0.0
-    """Gap offset (gap at zero pressure)."""
-    
-    pressure_to_gap_b: float = 0.05
-    """Gap slope (gap per unit pressure)."""
 
+    # Pressure to gap mapping: gap = a + b * pressure
+    pressure_to_gap_mapping: list[list[float]] = [[0.0, 0.0], [0.05, 0.05]] # [[pressure, gap], [pressure, gap]]
+    """Mapping of pressure to gap."""
+    
 
 # Pre-configured gripper for easy use in simulations
 GRIPPER_CFG = GripperCfg(
@@ -65,7 +62,6 @@ GRIPPER_CFG = GripperCfg(
     },
     # Pressure control parameters (using defaults from GripperCfg)
     kp=50.0,
-    kd=10.0,
-    pressure_to_gap_a=0.0,
-    pressure_to_gap_b=0.05,
+    kd=0.0,
+    pressure_to_gap_mapping=[[0.0, 0.0], [0.05, 0.05]] # [[pressure, gap], [pressure, gap]]
 )
