@@ -81,18 +81,6 @@ class Gripper(Articulation):
         else:
             self._target_pressure[env_ids] = pressure
 
-        # Simple binary control
-        mag = torch.tensor([10.0, -10.0], device=self.device)
-        index, _ = self.find_joints([".*f0", ".*f1"])
-        
-        # Compute forces using sign and broadcasting [num_envs, 2]
-        sign = torch.sign(pressure).unsqueeze(1)  # [num_envs, 1]
-        forces = sign * mag.unsqueeze(0)  # [num_envs, 2]
-        self._joint_effort_target_sim[:, index] = forces
-
-        # For the sake of prototyping, calculate the gap target (not used yet)
-        self._gap_target = self._compute_gap_target(pressure)
-        print(f"DEBUG: GAP TARGET: {self._gap_target}")
     
     """
     Operations - Write to Simulation
@@ -108,8 +96,21 @@ class Gripper(Articulation):
         4. Apply symmetric forces to both finger joints
         5. Write forces directly to PhysX
         """
+        # 1. Compute current gap and gap velocity
+        g = self._compute_gap()
+        gdot = self._compute_gap_velocity()
 
-        # Step 5, only now
+        # 2. Compute target gap from pressure
+        gt = self._compute_gap_target(self._target_pressure)
+
+        # 3. Compute control force: tau = kp * (gap_target - gap) - kd * gap_dot
+        tau = self._kp * (gt - g) - self._kd * gdot
+
+        # 4. Apply symmetric forces to both finger joints
+        self._joint_effort_target_sim[:, 0] = -tau
+        self._joint_effort_target_sim[:, 1] = tau
+
+        # 5. Write forces directly to PhysX
         self.root_physx_view.set_dof_actuation_forces(self._joint_effort_target_sim, self._ALL_INDICES)
     
     """
@@ -179,7 +180,6 @@ class Gripper(Articulation):
         """
         index, names = self.find_bodies([".*ft0.*", ".*ft1.*"])
         pos = self.data.body_pos_w[:, index]
-        print(f"DEBUG: FINGER POSITIONS: {pos}")
         return torch.norm(pos[:, 0] - pos[:, 1], dim=1)
     
     def _compute_gap_velocity(self) -> torch.Tensor:
