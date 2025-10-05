@@ -21,7 +21,7 @@ class GripperCfg(ArticulationCfg):
     class_type: type = Gripper
     
     # PD controller gains for gap control
-    kp: float = 0.1
+    kp: float = 1000.0
     """Proportional gain for gap controller."""
     
     kd: float = 0.0

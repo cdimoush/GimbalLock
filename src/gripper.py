@@ -92,7 +92,7 @@ class Gripper(Articulation):
         
         Overrides parent method to implement custom pressure-based force control:
         1. Compute current gap and gap velocity from finger positions/velocities (per-finger)
-        2. Compute target gap from pressure: gap_target = (a + b * pressure) / 2 for each finger
+        2. Compute target gap from pressure with symmetric signs for each finger
         3. Compute control force per finger: tau = kp * (gap_target - gap) - kd * gap_dot
         4. Apply forces to both finger joints
         5. Write forces directly to PhysX
@@ -104,15 +104,18 @@ class Gripper(Articulation):
         # 2. Compute target total gap from pressure [num_envs]
         gt_total = self._compute_gap_target(self._target_pressure)
         
-        # 3. Split target equally between fingers [num_envs, 1]
-        gt = (gt_total / 2.0).unsqueeze(-1)
+        # 3. Split target equally between fingers with symmetric signs [num_envs, 2]
+        # Finger 0 (on +y): positive target, Finger 1 (on -y): negative target
+        gt_signed = (gt_total / 2.0).unsqueeze(-1) * torch.tensor([1.0, -1.0], device=self.device)
 
         # 4. Compute per-finger control forces [num_envs, 2]
-        tau = self._kp * (gt - g) - self._kd * gdot
+        tau = self._kp * (gt_signed - g) - self._kd * gdot
 
         # 5. Apply forces to both finger joints using cached indices
-        self._joint_effort_target_sim[:, self._finger_joint_indices[0]] = -tau[:, 0]
-        self._joint_effort_target_sim[:, self._finger_joint_indices[1]] = tau[:, 1]
+        # With signed targets, tau already has the correct signs for both fingers
+        # self._joint_effort_target_sim[:, self._finger_joint_indices[0]] = tau[:, 0]
+        # self._joint_effort_target_sim[:, self._finger_joint_indices[1]] = tau[:, 1]
+        self._joint_effort_target_sim = tau
 
         # 6. Write forces directly to PhysX
         self.root_physx_view.set_dof_actuation_forces(self._joint_effort_target_sim, self._ALL_INDICES)
