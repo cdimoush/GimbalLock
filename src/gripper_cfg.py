@@ -21,11 +21,21 @@ class GripperCfg(ArticulationCfg):
     class_type: type = Gripper
     
     # PD controller gains for gap control
-    kp: float = 1000.0
+    kp: float = 100.0
     """Proportional gain for gap controller."""
     
-    kd: float = 0.0
+    kd: float = 10.0
     """Derivative gain for gap controller."""
+    
+    max_effort: float = 1.0
+    """Maximum effort (force) that can be applied to each finger joint (N or N·m)."""
+    
+    # Joint physical properties
+    joint_armature: float = 0.01
+    """Joint armature - added to joint-space inertia to improve stability."""
+    
+    joint_friction: float = 0.1
+    """Joint static friction coefficient."""
 
     # Pressure to gap mapping: gap = a + b * pressure
     pressure_to_gap_mapping: list[list[float]] = [[-60.0, 0.0], [0.0, 0.006], [60.0, 0.015]] # [[pressure, gap], [pressure, gap]]

@@ -59,7 +59,7 @@ class Gripper(Articulation):
 
     @property
     def gap_velocity(self) -> torch.Tensor:
-        """Gap velocity magnitude for each gripper finger. Shape: (num_envs, 2)"""
+        """Gap velocity for each gripper finger (signed, projected onto y-axis). Shape: (num_envs, 2)"""
         return self._compute_gap_velocity()
     
     """
@@ -94,8 +94,9 @@ class Gripper(Articulation):
         1. Compute current gap and gap velocity from finger positions/velocities (per-finger)
         2. Compute target gap from pressure with symmetric signs for each finger
         3. Compute control force per finger: tau = kp * (gap_target - gap) - kd * gap_dot
-        4. Apply forces to both finger joints
-        5. Write forces directly to PhysX
+        4. Clamp forces to effort limit
+        5. Apply forces to both finger joints
+        6. Write forces directly to PhysX
         """
         # 1. Compute current per-finger gaps and velocities [num_envs, 2]
         g = self._compute_gap()
@@ -106,18 +107,18 @@ class Gripper(Articulation):
         
         # 3. Split target equally between fingers with symmetric signs [num_envs, 2]
         # Finger 0 (on +y): positive target, Finger 1 (on -y): negative target
-        gt_signed = (gt_total / 2.0).unsqueeze(-1) * torch.tensor([1.0, -1.0], device=self.device)
+        gt_signed = (gt_total / 2.0).unsqueeze(-1) * torch.tensor([-1.0, 1.0], device=self.device)
 
         # 4. Compute per-finger control forces [num_envs, 2]
         tau = self._kp * (gt_signed - g) - self._kd * gdot
+        
+        # 5. Clamp forces to effort limit
+        tau = torch.clamp(tau, -self.cfg.max_effort, self.cfg.max_effort)
 
-        # 5. Apply forces to both finger joints using cached indices
-        # With signed targets, tau already has the correct signs for both fingers
-        # self._joint_effort_target_sim[:, self._finger_joint_indices[0]] = tau[:, 0]
-        # self._joint_effort_target_sim[:, self._finger_joint_indices[1]] = tau[:, 1]
+        # 6. Apply forces to both finger joints using cached indices
         self._joint_effort_target_sim = tau
 
-        # 6. Write forces directly to PhysX
+        # 7. Write forces directly to PhysX
         self.root_physx_view.set_dof_actuation_forces(self._joint_effort_target_sim, self._ALL_INDICES)
     
     """
@@ -132,6 +133,16 @@ class Gripper(Articulation):
         # Cache finger body and joint indices
         self._finger_body_indices, _ = self.find_bodies([".*ft0.*", ".*ft1.*"])
         self._finger_joint_indices, _ = self.find_joints([".*f0", ".*f1"])
+        
+        # Write joint physical properties to simulation using parent's methods
+        self.write_joint_armature_to_sim(
+            armature=self.cfg.joint_armature,
+            joint_ids=self._finger_joint_indices
+        )
+        self.write_joint_friction_coefficient_to_sim(
+            joint_friction_coeff=self.cfg.joint_friction,
+            joint_ids=self._finger_joint_indices
+        )
         
         # Initialize pressure buffer
         self._target_pressure = torch.zeros(self.num_instances, device=self.device)
@@ -211,15 +222,22 @@ class Gripper(Articulation):
         return gaps
     
     def _compute_gap_velocity(self) -> torch.Tensor:
-        """Compute gap velocity for each finger (magnitude of finger velocity).
+        """Compute gap velocity for each finger (velocity projected onto root's y-axis).
         
         Returns:
-            Gap velocity magnitude for each finger. Shape: (num_envs, 2)
+            Gap velocity for each finger. Shape: (num_envs, 2)
+            Positive = moving away from root, Negative = moving toward root
         """
+        # Get root orientation from parent class
+        root_quat = self.data.root_link_quat_w  # [num_envs, 4]
+        
         # Get finger velocities using cached indices
         finger_lin_vel = self.data.body_link_vel_w[:, self._finger_body_indices, :3]  # [num_envs, 2, 3]
         
-        # Compute magnitude of each finger's velocity
-        gap_vel = torch.norm(finger_lin_vel, dim=-1)  # [num_envs, 2]
+        # Transform local y-axis to world frame
+        projection_axis_world = math_utils.quat_apply(root_quat, self._projection_axis_local.unsqueeze(0))  # [num_envs, 3]
+        
+        # Project finger velocities onto y-axis (SIGNED)
+        gap_vel = torch.sum(finger_lin_vel * projection_axis_world.unsqueeze(1), dim=-1)  # [num_envs, 2]
         
         return gap_vel

@@ -58,8 +58,8 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
     print(f"  Body Names: {gripper.body_names}")
 
     # Define pressure targets
-    pressure_low = torch.ones(gripper.num_instances, device=gripper.device) * -60.0
-    pressure_high = torch.ones(gripper.num_instances, device=gripper.device) * 0.0
+    pressure_low = torch.ones(gripper.num_instances, device=gripper.device) * 0.0
+    pressure_high = torch.ones(gripper.num_instances, device=gripper.device) * 60.0
     
     current_pressure = pressure_low.clone()
     
@@ -70,13 +70,14 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
         if count % 100 == 0:
             if torch.equal(current_pressure, pressure_low):
                 current_pressure = pressure_high.clone()
+                print(f"Pressure: {current_pressure[0].item()}")
             else:
                 current_pressure = pressure_low.clone() 
+                print(f"Pressure: {current_pressure[0].item()}")
 
-        # Debug print every 50 frames
-        if count % 25 == 0:
-            print(f"Gap Target: {gripper._compute_gap_target(current_pressure)[0].item()}")
+        if count % 10 == 0:
             print(f"Gap: {gripper.gap[0].tolist()}")
+            print(f"Gap Target: {gripper._compute_gap_target(current_pressure)[0].item()}")
             print(f"Joint Effort Target: {gripper._joint_effort_target_sim[0].tolist()}")
             print(f"--------------------------------")
 
