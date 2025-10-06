@@ -48,8 +48,8 @@ Thumbs.db
 # Claude
 .claude/
 
-# models
-models/
-
 # data
 data/
+
+# Output
+output/

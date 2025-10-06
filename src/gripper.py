@@ -41,17 +41,11 @@ class Gripper(Articulation):
         super().__init__(cfg)
         
         # Create buffer for target pressure [num_envs]
-        self._target_pressure = None  # Will be initialized after parent init
+        self._pressure = None  # Will be initialized after parent init
     
     """
     Properties
     """
-    
-    @property
-    def target_pressure(self) -> torch.Tensor:
-        """Target pressure for each environment. Shape: (num_envs,)"""
-        return self._target_pressure
-
     @property
     def gap(self) -> torch.Tensor:
         """Gap for each gripper finger (distance from root projected onto root y-axis). Shape: (num_envs, 2)"""
@@ -61,6 +55,11 @@ class Gripper(Articulation):
     def gap_velocity(self) -> torch.Tensor:
         """Gap velocity for each gripper finger (signed, projected onto y-axis). Shape: (num_envs, 2)"""
         return self._compute_gap_velocity()
+
+    @property
+    def pressure(self) -> torch.Tensor:
+        """Pressure for each environment. Shape: (num_envs,)"""
+        return self._pressure
     
     """
     Operations - Setters
@@ -78,9 +77,9 @@ class Gripper(Articulation):
         """
         # Store target pressure
         if env_ids is None:
-            self._target_pressure[:] = pressure
+            self._pressure[:] = pressure
         else:
-            self._target_pressure[env_ids] = pressure
+            self._pressure[env_ids] = pressure
 
     
     """
@@ -103,7 +102,7 @@ class Gripper(Articulation):
         gdot = self._compute_gap_velocity()
 
         # 2. Compute target total gap from pressure [num_envs]
-        gt_total = self._compute_gap_target(self._target_pressure)
+        gt_total = self._compute_gap_target(self._pressure)
         
         # 3. Split target equally between fingers with symmetric signs [num_envs, 2]
         # Finger 0 (on +y): positive target, Finger 1 (on -y): negative target
@@ -145,7 +144,7 @@ class Gripper(Articulation):
         )
         
         # Initialize pressure buffer
-        self._target_pressure = torch.zeros(self.num_instances, device=self.device)
+        self._pressure = torch.zeros(self.num_instances, device=self.device)
         self._kp = self.cfg.kp
         self._kd = self.cfg.kd
         self._pressure_to_gap_mapping = self.cfg.pressure_to_gap_mapping

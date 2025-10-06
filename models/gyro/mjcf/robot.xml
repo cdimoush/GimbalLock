@@ -1,0 +1,70 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape document_id: d9033effb682bcc1f574e56d / workspace_id: 6d5aea9da7909d1356cfc92f -->
+<mujoco model="gyro">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <default>
+    <default class="gyro">
+      <joint frictionloss="0.1" armature="0.005"/>
+      <position kp="50" dampratio="1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom group="3"/>
+      </default>
+    </default>
+  </default>
+  <worldbody>
+    <!-- Link base -->
+    <body name="base" pos="0 0 0" quat="1 0 0 0" childclass="gyro">
+      <inertial pos="-7.24788e-18 5.97777e-18 -0.197813" mass="1.99622e-05" fullinertia="3.29703e-07 3.29703e-07 6.13693e-07 0 0 0"/>
+      <!-- Part base -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="base" material="base_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="base" material="base_material"/>
+      <!-- Link link0 -->
+      <body name="link0" pos="0 0 0" quat="1 0 0 0">
+        <!-- Joint from base to link0 -->
+        <joint axis="0 0 1" name="joint0" type="hinge"/>
+        <inertial pos="7.47112e-10 -2.75698e-08 0.001885" mass="7.81231e-06" fullinertia="4.97901e-08 4.86328e-08 4.98632e-08 0 5.86124e-16 -3.45582e-16"/>
+        <!-- Part link0 -->
+        <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="link0" material="link0_material"/>
+        <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="link0" material="link0_material"/>
+        <!-- Link link1 -->
+        <body name="link1" pos="0 0 0" quat="0.5 0.5 0.5 0.5">
+          <!-- Joint from link0 to link1 -->
+          <joint axis="0 0 1" name="joint1" type="hinge"/>
+          <inertial pos="-4.0726e-18 0.523056 -5.0042e-16" mass="2.79873e-06" fullinertia="3.64846e-07 8.2054e-09 3.57785e-07 7.31261e-29 -2.963e-13 -8.62753e-23"/>
+          <!-- Part link1 -->
+          <geom type="mesh" class="visual" pos="0 0 0" quat="0.5 -0.5 -0.5 -0.5" mesh="link1" material="link1_material"/>
+          <geom type="mesh" class="collision" pos="0 0 0" quat="0.5 -0.5 -0.5 -0.5" mesh="link1" material="link1_material"/>
+          <!-- Link link2 -->
+          <body name="link2" pos="3.36742e-32 1 2.46798e-16" quat="0.5 -0.5 -0.5 -0.5">
+            <!-- Joint from link1 to link2 -->
+            <joint axis="0 0 1" name="joint2" type="hinge"/>
+            <inertial pos="-3.34838e-17 -2.77862e-17 -1.11022e-16" mass="433.975" fullinertia="38.3609 38.3609 75.7505 -2.84811e-14 -7.71217e-16 -1.57499e-15"/>
+            <!-- Part link2 -->
+            <geom type="mesh" class="visual" pos="0 0 -1" quat="1 0 0 0" mesh="link2" material="link2_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -1" quat="1 0 0 0" mesh="link2" material="link2_material"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <asset>
+    <mesh file="link0.stl"/>
+    <mesh file="base.stl"/>
+    <mesh file="link2.stl"/>
+    <mesh file="link1.stl"/>
+    <material name="base_material" rgba="0.231373 0.380392 0.705882 1"/>
+    <material name="link0_material" rgba="0.682353 0.333333 0.737255 1"/>
+    <material name="link1_material" rgba="0.231373 0.380392 0.705882 1"/>
+    <material name="link2_material" rgba="0.682353 0.333333 0.737255 1"/>
+  </asset>
+  <actuator>
+    <position class="gyro" name="joint0" joint="joint0"/>
+    <position class="gyro" name="joint1" joint="joint1"/>
+    <position class="gyro" name="joint2" joint="joint2"/>
+  </actuator>
+  <equality/>
+</mujoco>

@@ -1,0 +1,71 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape document_id: 3a4a429737033a1864619f9a / workspace_id: 420cbea4b9fb646664a27e4f -->
+<mujoco model="gripper">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <default>
+    <default class="gripper">
+      <joint frictionloss="0.1" armature="0.005"/>
+      <position kp="50" dampratio="1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom group="3"/>
+      </default>
+    </default>
+  </default>
+  <worldbody>
+    <!-- Link base -->
+    <body name="base" pos="0 0 0" quat="1 0 0 0" childclass="gripper">
+      <freejoint name="base_freejoint"/>
+      <inertial pos="3.61549e-08 -7.97298e-09 -0.00737362" mass="0.009468" fullinertia="5.5437e-07 5.33472e-07 7.36418e-07 -6.83552e-12 3.6342e-13 -8.63671e-15"/>
+      <!-- Part base -->
+      <geom type="mesh" class="visual" pos="-5.16379e-20 -3.44252e-21 0" quat="0.5 0.5 0.5 0.5" mesh="base" material="base_material"/>
+      <geom type="mesh" class="collision" pos="-5.16379e-20 -3.44252e-21 0" quat="0.5 0.5 0.5 0.5" mesh="base" material="base_material"/>
+      <!-- Link f0 -->
+      <body name="f0" pos="-5.16379e-20 -0.0055 -0.015" quat="0.5 0.5 0.5 0.5">
+        <!-- Joint from base to f0 -->
+        <joint axis="0 0 1" name="rev_f0" type="hinge" range="-0.3909537524467298 0.2007128639793479"/>
+        <inertial pos="-0.000822898 -0.00614991 -5.03895e-11" mass="0.00267932" fullinertia="1.27461e-07 9.2376e-08 6.87846e-08 -1.03301e-09 2.12026e-15 -4.84976e-15"/>
+        <!-- Part f0 -->
+        <geom type="mesh" class="visual" pos="0.0055 0.015 0" quat="1 0 0 0" mesh="f0" material="f0_material"/>
+        <geom type="mesh" class="collision" pos="0.0055 0.015 0" quat="1 0 0 0" mesh="f0" material="f0_material"/>
+        <!-- Link ft0 -->
+        <body name="ft0" pos="0.0025 -0.01525 0" quat="1 0 0 0">
+          <!-- Joint from f0 to ft0 -->
+          <!-- Joint is "fixed", skipping it -->
+          <inertial pos="0 0 0" mass="1e-09" fullinertia="1e-09 1e-09 1e-09 0 0 0"/>
+        </body>
+      </body>
+      <!-- Link f1 -->
+      <body name="f1" pos="-5.16379e-20 0.0055 -0.015" quat="0.5 0.5 0.5 0.5">
+        <!-- Joint from base to f1 -->
+        <joint axis="0 0 1" name="rev_f1" type="hinge" range="-0.2007128639793479 0.3909537524467298"/>
+        <inertial pos="0.000822895 -0.00614991 5.03895e-11" mass="0.00267932" fullinertia="1.27461e-07 9.23761e-08 6.87847e-08 1.03304e-09 2.12026e-15 4.84976e-15"/>
+        <!-- Part f1 -->
+        <geom type="mesh" class="visual" pos="-0.0055 0.015 0" quat="1 0 0 0" mesh="f1" material="f1_material"/>
+        <geom type="mesh" class="collision" pos="-0.0055 0.015 0" quat="1 0 0 0" mesh="f1" material="f1_material"/>
+        <!-- Link ft1 -->
+        <body name="ft1" pos="-0.0025 -0.01525 5.16379e-20" quat="1 0 0 0">
+          <!-- Joint from f1 to ft1 -->
+          <!-- Joint is "fixed", skipping it -->
+          <inertial pos="0 0 0" mass="1e-09" fullinertia="1e-09 1e-09 1e-09 0 0 0"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <asset>
+    <mesh file="f1.stl"/>
+    <mesh file="f0.stl"/>
+    <mesh file="base.stl"/>
+    <material name="base_material" rgba="0.4 0.4 0.4 1"/>
+    <material name="f0_material" rgba="0.4 0.4 0.4 1"/>
+    <material name="f1_material" rgba="0.4 0.4 0.4 1"/>
+  </asset>
+  <actuator>
+    <position class="gripper" name="rev_f0" joint="rev_f0" inheritrange="1"/>
+    <position class="gripper" name="rev_f1" joint="rev_f1" inheritrange="1"/>
+  </actuator>
+  <equality/>
+</mujoco>
