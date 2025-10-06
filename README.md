@@ -87,9 +87,7 @@ Additional output: `gripper_pressure_demo.mp4` (30 FPS)
 
 Gripper responding to sinusoidal pressure commands (-60 to +60 kPa, 2.5s period):
 
-https://github.com/user-attachments/assets/gripper_pressure_demo.mp4
-
-*Note: If video doesn't display, see `media/gripper_pressure_demo.mp4`*
+![Gripper Pressure Demo](media/gripper_pressure_demo.mp4)
 
 ### Pressure-Gap Relationship
 
